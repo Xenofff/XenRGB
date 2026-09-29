@@ -108,7 +108,15 @@ public abstract class EffectBase : IEffect
         OnUpdate(context);
     }
 
-    public abstract RgbColor RenderPixel(float x, float y, EffectContext context);
+    public virtual RgbColor Evaluate(Point2D position, double time)
+    {
+        return RenderPixel(position.X, position.Y, new EffectContext(0.016f, (float)time));
+    }
+
+    public virtual RgbColor RenderPixel(float x, float y, EffectContext context)
+    {
+        return Evaluate(new Point2D(x, y), context.TotalTime);
+    }
 
     public virtual void Reset()
     {

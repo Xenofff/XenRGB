@@ -1,13 +1,13 @@
 {
   "id": "biohazard",
   "name": "Biohazard",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": "XenRGB",
-  "description": "Green-themed radioactive toxic pulses and organic bio-luminescent surges.",
+  "description": "Radioactive matrix of independently pulsing particles and sweeping toxic energy waves.",
   "category": "Animated",
   "defaultParameters": {
-    "speed": 1.0,
-    "brightness": 1.0,
-    "intensity": 0.8
+    "bg_color": "#031F08",
+    "color_1": "#00FF44",
+    "speed": 1.0
   }
 }

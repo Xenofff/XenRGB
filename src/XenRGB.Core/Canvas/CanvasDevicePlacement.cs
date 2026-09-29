@@ -37,6 +37,9 @@ public sealed class CanvasDevicePlacement
     /// </summary>
     public float RotationDegrees { get; set; } = 0f;
 
+    public bool FlipHorizontal { get; set; } = false;
+    public bool FlipVertical { get; set; } = false;
+
     public bool IsEnabled { get; set; } = true;
 
     public CanvasDevicePlacement() { }
@@ -63,6 +66,9 @@ public sealed class CanvasDevicePlacement
         float rx = (localX - 0.5f) * Width;
         float ry = (localY - 0.5f) * Height;
 
+        if (FlipHorizontal) rx = -rx;
+        if (FlipVertical) ry = -ry;
+
         // Apply rotation if needed
         if (MathF.Abs(RotationDegrees) > 0.001f)
         {
@@ -87,7 +93,9 @@ public sealed class CanvasDevicePlacement
     {
         return new CanvasDevicePlacement(DeviceId, DeviceName, X, Y, Width, Height, RotationDegrees)
         {
-            IsEnabled = IsEnabled
+            IsEnabled = IsEnabled,
+            FlipHorizontal = FlipHorizontal,
+            FlipVertical = FlipVertical
         };
     }
 }

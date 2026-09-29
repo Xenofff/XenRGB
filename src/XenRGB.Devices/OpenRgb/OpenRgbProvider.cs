@@ -407,6 +407,8 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 }
             }
 
+            var deviceType = MapDeviceType(rawType);
+
             // LEDs
             ushort ledCount = reader.ReadUInt16();
             var ledCoordinates = new List<LedCoordinate>();
@@ -420,8 +422,16 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 }
 
                 // Calculate normalized coordinate
-                float localX = ledCount > 1 ? (float)l / (ledCount - 1) : 0.5f;
-                float localY = 0.5f;
+                float localX, localY;
+                if (deviceType == RgbDeviceType.Keyboard)
+                {
+                    (localX, localY) = GetKeyboardLedCoordinate(l, ledCount, ledName);
+                }
+                else
+                {
+                    localX = ledCount > 1 ? (float)l / (ledCount - 1) : 0.5f;
+                    localY = 0.5f;
+                }
 
                 ledCoordinates.Add(new LedCoordinate(l, localX, localY, ledName));
             }
@@ -430,8 +440,17 @@ public sealed class OpenRgbProvider : IDeviceProvider
             {
                 for (int l = 0; l < totalZoneLeds; l++)
                 {
-                    float localX = totalZoneLeds > 1 ? (float)l / (totalZoneLeds - 1) : 0.5f;
-                    ledCoordinates.Add(new LedCoordinate(l, localX, 0.5f, $"LED {l + 1}"));
+                    float localX, localY;
+                    if (deviceType == RgbDeviceType.Keyboard)
+                    {
+                        (localX, localY) = GetKeyboardLedCoordinate(l, totalZoneLeds, null);
+                    }
+                    else
+                    {
+                        localX = totalZoneLeds > 1 ? (float)l / (totalZoneLeds - 1) : 0.5f;
+                        localY = 0.5f;
+                    }
+                    ledCoordinates.Add(new LedCoordinate(l, localX, localY, $"LED {l + 1}"));
                 }
             }
 
@@ -441,7 +460,6 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 ledCoordinates.Add(new LedCoordinate(0, 0.5f, 0.5f, "Main LED"));
             }
 
-            var deviceType = MapDeviceType(rawType);
             string devId = $"openrgb-{index}-{name.ToLowerInvariant().Replace(' ', '-')}";
             string displayName = string.IsNullOrWhiteSpace(vendor) ? name : $"{vendor} {name}";
 
@@ -476,6 +494,27 @@ public sealed class OpenRgbProvider : IDeviceProvider
         11 => RgbDeviceType.Lightbar,
         _ => RgbDeviceType.Other
     };
+
+    private static (float x, float y) GetKeyboardLedCoordinate(int index, int totalCount, string? ledName)
+    {
+        if (totalCount == 87)
+        {
+            // Standard 87-key TKL layout (e.g. HyperX Alloy Origins Core)
+            if (index < 16) return ((index + 0.5f) / 16f, 0.08f);
+            if (index < 32) return ((index - 16 + 0.5f) / 16f, 0.25f);
+            if (index < 48) return ((index - 32 + 0.5f) / 16f, 0.42f);
+            if (index < 61) return ((index - 48 + 0.5f) / 13.5f, 0.58f);
+            if (index < 75) return ((index - 61 + 0.5f) / 14.5f, 0.75f);
+            return ((index - 75 + 0.5f) / 13f, 0.92f);
+        }
+
+        int rows = 6;
+        int row = Math.Clamp((int)(index / (float)totalCount * rows), 0, rows - 1);
+        int cols = (int)MathF.Ceiling(totalCount / (float)rows);
+        if (cols <= 0) cols = 1;
+        int col = index % cols;
+        return ((col + 0.5f) / cols, (row + 0.5f) / rows);
+    }
 
     public void Dispose()
     {

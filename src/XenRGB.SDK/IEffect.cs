@@ -35,6 +35,11 @@ public interface IEffect
     void Update(EffectContext context);
 
     /// <summary>
+    /// Evaluates the RGB color at normalized 2D canvas coordinates (Point2D: 0..1, 0..1) at the given time in seconds.
+    /// </summary>
+    RgbColor Evaluate(Point2D position, double time);
+
+    /// <summary>
     /// Evaluates the RGB color at normalized 2D canvas coordinates (x: 0..1, y: 0..1).
     /// </summary>
     RgbColor RenderPixel(float x, float y, EffectContext context);

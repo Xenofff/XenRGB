@@ -256,7 +256,7 @@ public sealed class RgbEngine : IDisposable
             for (int i = 0; i < count; i++)
             {
                 var pt = mappedLeds[i].CanvasPoint;
-                var rawColor = effect.RenderPixel(pt.X, pt.Y, context);
+                var rawColor = effect.Evaluate(pt, context.TotalTime);
 
                 colors[i] = deviceBrightness < 0.999f
                     ? rawColor.WithBrightness(deviceBrightness)

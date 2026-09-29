@@ -1,12 +1,11 @@
 {
   "id": "rainbow",
   "name": "Rainbow",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": "XenRGB",
-  "description": "Smooth continuous spectral rainbow animation sweeping across all devices.",
+  "description": "A smooth, continuous spectral rainbow animation flowing across all devices.",
   "category": "Animated",
   "defaultParameters": {
-    "speed": 1.0,
-    "brightness": 1.0
+    "speed": 1.0
   }
 }

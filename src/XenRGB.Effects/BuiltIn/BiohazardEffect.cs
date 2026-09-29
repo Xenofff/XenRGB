@@ -5,75 +5,75 @@ using XenRGB.SDK;
 namespace XenRGB.Effects.BuiltIn;
 
 /// <summary>
-/// Toxic radioactive green animated pulses and organic biohazard waves.
+/// Radioactive toxic particle surface and sweeping biohazard waves.
+/// Every spatial point has an independent deterministic phase and frequency.
 /// </summary>
 public sealed class BiohazardEffect : EffectBase
 {
-    private static readonly RgbColor DeepToxic = RgbColor.FromHex("#022B08");
-    private static readonly RgbColor ToxicGreen = RgbColor.FromHex("#00FF44");
-    private static readonly RgbColor AcidLime = RgbColor.FromHex("#A6FF00");
-
     public override string Id => "biohazard";
     public override string Name => "Biohazard";
-    public override string Description => "Green-themed radioactive toxic pulses and organic bio-luminescent surges.";
+    public override string Description => "Radioactive matrix of independently pulsing particles and sweeping toxic energy waves.";
 
     public override EffectManifest Manifest { get; } = new()
     {
         Id = "biohazard",
         Name = "Biohazard",
-        Version = "1.0.0",
+        Version = "2.0.0",
         Author = "XenRGB",
-        Description = "Green-themed radioactive toxic pulses and organic bio-luminescent surges.",
+        Description = "Radioactive matrix of independently pulsing particles and sweeping toxic energy waves.",
         Category = "Animated",
         DefaultParameters = new Dictionary<string, object>
         {
-            ["speed"] = 1.0f,
-            ["brightness"] = 1.0f,
-            ["intensity"] = 0.8f
+            ["bg_color"] = "#031F08",
+            ["color_1"] = "#00FF44",
+            ["speed"] = 1.0f
         }
     };
 
     public override IReadOnlyList<EffectParameter> Parameters { get; } = new List<EffectParameter>
     {
-        EffectParameter.Float("speed", "Pulse Speed", 1.0f, 0.1f, 4.0f, 0.1f, "Speed of the radioactive pulses."),
-        EffectParameter.Float("brightness", "Brightness", 1.0f, 0.0f, 1.0f, 0.05f, "Overall lighting brightness."),
-        EffectParameter.Float("intensity", "Glow Intensity", 0.8f, 0.2f, 2.0f, 0.05f, "Sharpness and concentration of toxic glow.")
+        EffectParameter.Color("bg_color", "Background Color", RgbColor.FromHex("#031F08"), "Ambient dark toxic background color."),
+        EffectParameter.Color("color_1", "Color 1", RgbColor.FromHex("#00FF44"), "Active radioactive green glow color."),
+        EffectParameter.Float("speed", "Speed", 1.0f, 0.1f, 4.0f, 0.05f, "Animation and pulse progression speed.")
     };
+
+    public override RgbColor Evaluate(Point2D position, double time)
+    {
+        var bgColor = GetColor("bg_color", RgbColor.FromHex("#031F08"));
+        var color1 = GetColor("color_1", RgbColor.FromHex("#00FF44"));
+        float speed = GetFloat("speed", 1.0f);
+
+        float animTime = (float)time * speed;
+
+        // 1. Deterministic pseudo-random phase and frequency derived from spatial coordinates
+        int ix = (int)(position.X * 1000f);
+        int iy = (int)(position.Y * 1000f);
+        int hash = (ix * 73856093) ^ (iy * 19349663);
+        float phase = ((hash & 0xFFFF) / 65535f) * MathF.PI * 2f;
+        float freq = 0.85f + (((hash >> 16) & 0x7FFF) / 32767f) * 0.7f;
+
+        // 2. Individual LED brightness oscillation (matrix of active points)
+        float flicker = 0.5f + 0.5f * MathF.Sin(animTime * 2.5f * freq + phase);
+        float pointBrightness = 0.50f + 0.50f * (flicker * flicker);
+
+        // 3. Sweeping spatial waves across the canvas
+        float wave1X = (animTime * 0.35f) % 2.4f - 0.7f;
+        float dist1 = MathF.Abs(position.X - wave1X);
+        float wave1 = MathF.Exp(-dist1 * dist1 * 50f);
+
+        float wave2Y = (animTime * 0.25f + 0.6f) % 2.2f - 0.6f;
+        float dist2 = MathF.Abs(position.Y - wave2Y);
+        float wave2 = MathF.Exp(-dist2 * dist2 * 40f) * 0.7f;
+
+        float waveTotal = Math.Clamp(wave1 + wave2, 0f, 1f);
+
+        // 4. Combine point pulse and energy waves
+        float intensity = Math.Clamp(pointBrightness * 0.60f + waveTotal * 0.70f, 0f, 1f);
+        return RgbColor.Lerp(bgColor, color1, intensity);
+    }
 
     public override RgbColor RenderPixel(float x, float y, EffectContext context)
     {
-        float speed = GetFloat("speed", 1.0f);
-        float brightness = GetFloat("brightness", 1.0f);
-        float intensity = GetFloat("intensity", 0.8f);
-
-        float time = context.TotalTime * speed;
-
-        // Radial pulse from center + organic noise
-        float dx = x - 0.5f;
-        float dy = y - 0.5f;
-        float dist = MathF.Sqrt(dx * dx + dy * dy);
-
-        // Ring pulses traveling outwards
-        float pulse = MathF.Sin(dist * 12f - time * 3f);
-        pulse = (pulse + 1f) * 0.5f; // 0..1
-
-        // Add 2D procedural noise for organic fluid turbulence
-        float noise = MathUtils.Perlin2DNormalized(x * 3f + time * 0.2f, y * 3f - time * 0.3f);
-        float combined = (pulse * 0.6f + noise * 0.4f) * intensity;
-        combined = Math.Clamp(combined, 0f, 1f);
-
-        RgbColor color;
-        if (combined < 0.6f)
-        {
-            float t = combined / 0.6f;
-            color = RgbColor.Lerp(DeepToxic, ToxicGreen, t);
-        }
-        else
-        {
-            float t = (combined - 0.6f) / 0.4f;
-            color = RgbColor.Lerp(ToxicGreen, AcidLime, t);
-        }
-
-        return brightness < 0.999f ? color.WithBrightness(brightness) : color;
+        return Evaluate(new Point2D(x, y), context.TotalTime);
     }
 }

@@ -108,10 +108,14 @@ public sealed partial class EffectsPage : Page
                     Width = 300
                 };
 
-                if (effect.GetParameter(param.Name) is RgbColor rgb)
-                {
-                    colorPicker.Color = Color.FromArgb(255, rgb.R, rgb.G, rgb.B);
-                }
+                RgbColor initialColor = RgbColor.White;
+                var currentVal = effect.GetParameter(param.Name);
+                if (currentVal is RgbColor rgb) initialColor = rgb;
+                else if (currentVal is string hex) initialColor = RgbColor.FromHex(hex);
+                else if (param.DefaultValue is RgbColor def) initialColor = def;
+                else if (param.DefaultValue is string defHex) initialColor = RgbColor.FromHex(defHex);
+
+                colorPicker.Color = Color.FromArgb(255, initialColor.R, initialColor.G, initialColor.B);
 
                 colorPicker.ColorChanged += (s, args) =>
                 {

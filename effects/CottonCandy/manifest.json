@@ -1,13 +1,16 @@
 {
   "id": "cotton-candy",
   "name": "Cotton Candy",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": "XenRGB",
-  "description": "Smooth flowing blue and purple gradient animation with gentle organic movement.",
+  "description": "A calm, smooth flowing atmospheric scene with drifting cyan and magenta clouds over a rich gradient.",
   "category": "Atmospheric",
   "defaultParameters": {
-    "speed": 0.5,
-    "brightness": 1.0,
-    "scale": 1.2
+    "bg_color_1": "#0B0C2A",
+    "bg_color_2": "#3A0CA3",
+    "bg_color_3": "#003B73",
+    "color_1": "#00F0FF",
+    "color_2": "#FF007F",
+    "speed": 1.0
   }
 }
