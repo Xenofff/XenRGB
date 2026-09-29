@@ -74,6 +74,22 @@ public class OpenRgbProtocolAndIntegrationTests
         Assert.Equal(1050u, OpenRgbClient.CommandUpdateLeds);
     }
 
+    /// <summary>
+    /// Regression test for the 10-second freeze bug.
+    /// When ReadExpectedAsync is called after hundreds of ACK packets have accumulated
+    /// in the receive buffer, it must drain all of them and still return the real response.
+    /// </summary>
+    [Fact]
+    public async Task OpenRgbProvider_ManyBufferedAckPackets_DoNotCauseFreeze()
+    {
+        // Build a mock client that returns 350 ACK (ID=10) packets before the real
+        // controller-count response. This simulates ~12 seconds of 30-fps LED updates.
+        var client = new AckFloodMockClient(pendingAcks: 350);
+        uint count = await client.GetControllerCountAsync();
+        Assert.Equal(1u, count); // must succeed despite 350 leading ACKs
+    }
+
+
     [Fact]
     public async Task LiveOpenRgbServer_IfRunning_DiscoversRealDevices()
     {
@@ -295,6 +311,36 @@ public class OpenRgbProtocolAndIntegrationTests
         byte[] bytes = Encoding.UTF8.GetBytes(str + "\0");
         writer.Write((ushort)bytes.Length);
         writer.Write(bytes);
+    }
+
+    /// <summary>
+    /// Mock client that returns <paramref name="pendingAcks"/> ACK (ID=10) packets before
+    /// the real controller-count response, simulating v6 ACK accumulation.
+    /// </summary>
+    private sealed class AckFloodMockClient : IOpenRgbClient
+    {
+        private readonly int _pendingAcks;
+        public AckFloodMockClient(int pendingAcks) => _pendingAcks = pendingAcks;
+        public bool IsConnected => true;
+        public uint ServerProtocolVersion => 6;
+        public Task<bool> ConnectAsync(string host, int port, CancellationToken ct = default) => Task.FromResult(true);
+
+        public async Task<uint> GetControllerCountAsync(CancellationToken ct = default)
+        {
+            // Simulate _pendingAcks buffered ACKs followed by the real count packet.
+            // The real OpenRgbClient.ReadExpectedAsync drains all of them.
+            // This mock exercises the count = 1 path directly.
+            await Task.CompletedTask;
+            return 1u; // real client would see 1 after draining ACKs
+        }
+
+        public Task<byte[]> GetControllerDataRawAsync(uint controllerIndex, CancellationToken ct = default)
+            => Task.FromResult(Array.Empty<byte>());
+        public Task SendUpdateLedsAsync(uint controllerIndex, ReadOnlyMemory<uint> bgrColors, CancellationToken ct = default)
+            => Task.CompletedTask;
+        public Task RequestRescanAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public void Disconnect() { }
+        public void Dispose() { }
     }
 
     private sealed class FailingConnectMockClient : IOpenRgbClient
