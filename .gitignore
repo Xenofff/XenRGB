@@ -1,0 +1,47 @@
+## [Visual Studio / .NET]
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## [Build Results]
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM/
+ARM64/
+bld/
+[Bb]inaries/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+
+## [Windows App SDK]
+Generated Files/
+AppPackages/
+BundleArtifacts/
+Package.StoreAssociation.xml
+_pkginfo.txt
+
+## [Test Results]
+TestResults/
+[Tt]est[Rr]esult*/
+
+## [IDE / Editors]
+.idea/
+.vscode/
+*.swp
+*.*~
+
+## [OS Generated]
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

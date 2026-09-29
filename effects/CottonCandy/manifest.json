@@ -1,0 +1,13 @@
+{
+  "id": "cotton-candy",
+  "name": "Cotton Candy",
+  "version": "1.0.0",
+  "author": "XenRGB",
+  "description": "Smooth flowing blue and purple gradient animation with gentle organic movement.",
+  "category": "Atmospheric",
+  "defaultParameters": {
+    "speed": 0.5,
+    "brightness": 1.0,
+    "scale": 1.2
+  }
+}

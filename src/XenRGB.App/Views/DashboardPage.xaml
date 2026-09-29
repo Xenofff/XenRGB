@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="XenRGB.App.Views.DashboardPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="24" Padding="32,24,32,32">
+            
+            <!-- Header and Quick Controls Bar -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel VerticalAlignment="Center" Spacing="4">
+                    <TextBlock Text="Dashboard" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Border x:Name="StatusDot" Width="10" Height="10" CornerRadius="5" Background="#10B981" />
+                        <TextBlock x:Name="StatusText" Text="Lighting Active" Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="•" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        <TextBlock x:Name="ActiveEffectText" Text="Effect: Cotton Candy" Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Quick Actions -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button x:Name="TurnOnButton" Content="Turn On" Click="TurnOnButton_Click" Style="{ThemeResource AccentButtonStyle}">
+                        <Button.KeyboardAccelerators>
+                            <KeyboardAccelerator Key="O" Modifiers="Control" />
+                        </Button.KeyboardAccelerators>
+                    </Button>
+                    <Button x:Name="TurnOffButton" Content="Turn Off" Click="TurnOffButton_Click" />
+                    <Button x:Name="GoodNightButton" Content="Good Night ☾" Click="GoodNightButton_Click" ToolTipService.ToolTip="Immediately turns off all RGB lighting until manually restored." />
+
+                    <Border Width="1" Height="28" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="6,0" />
+
+                    <!-- Master Brightness -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE706;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Slider x:Name="MasterBrightnessSlider" Width="130" Minimum="0" Maximum="100" Value="100" ValueChanged="MasterBrightnessSlider_ValueChanged" />
+                        <TextBlock x:Name="BrightnessLabel" Text="100%" Width="40" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- 2D Spatial Canvas Area -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="20">
+                <StackPanel Spacing="16">
+                    <Grid>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Spatial Desktop Canvas" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="Medium" />
+                            <TextBlock Text="Drag and position RGB devices in 2D space. Lighting effects flow naturally across your entire desktop."
+                                       Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                            <Button Content="Reset Setup" Click="ResetLayout_Click" Style="{ThemeResource SubtleButtonStyle}" />
+                            <Button Content="Save Setup" Click="SaveLayout_Click" Style="{ThemeResource DefaultButtonStyle}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Interactive Virtual Canvas Area -->
+                    <Border Background="#0D1117"
+                            BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Height="420">
+                        <Canvas x:Name="SpatialSurface"
+                                SizeChanged="SpatialSurface_SizeChanged"
+                                PointerPressed="SpatialSurface_PointerPressed"
+                                PointerMoved="SpatialSurface_PointerMoved"
+                                PointerReleased="SpatialSurface_PointerReleased">
+                            <!-- Device graphical placements are dynamically rendered here -->
+                        </Canvas>
+                    </Border>
+
+                    <!-- Selected Device Inspector & Canvas Coordinates Controls -->
+                    <Border x:Name="InspectorPanel"
+                            Background="{ThemeResource LayerFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="16"
+                            Visibility="Collapsed">
+                        <Grid ColumnSpacing="24">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Spacing="4" VerticalAlignment="Center">
+                                <TextBlock x:Name="SelectedDeviceName" Text="Device Name" FontWeight="SemiBold" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                <TextBlock x:Name="SelectedDeviceDetails" Text="Type • 87 LEDs" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+
+                            <!-- Dimension & Rotation Controls -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+                                <StackPanel Width="140">
+                                    <TextBlock Text="Position X" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Slider x:Name="SliderPosX" Minimum="0" Maximum="100" ValueChanged="SliderPosition_ValueChanged" />
+                                </StackPanel>
+                                <StackPanel Width="140">
+                                    <TextBlock Text="Position Y" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Slider x:Name="SliderPosY" Minimum="0" Maximum="100" ValueChanged="SliderPosition_ValueChanged" />
+                                </StackPanel>
+                                <StackPanel Width="140">
+                                    <TextBlock Text="Rotation" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Slider x:Name="SliderRotation" Minimum="0" Maximum="360" ValueChanged="SliderRotation_ValueChanged" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Button Grid.Column="2" Content="Remove from Canvas" Click="RemoveSelectedDevice_Click" Style="{ThemeResource DefaultButtonStyle}" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

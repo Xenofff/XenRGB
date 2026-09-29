@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="XenRGB.App.Views.DevicesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="24" Padding="32,24,32,32">
+            
+            <!-- Page Header -->
+            <Grid>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Devices" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <TextBlock Text="Manage your OpenRGB hardware, WLED strips, and simulated lighting devices."
+                               Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" VerticalAlignment="Center">
+                    <Button Content="+ Add WLED Device" Click="AddWledButton_Click" Style="{ThemeResource AccentButtonStyle}" />
+                    <Button Content="Scan Devices" Click="ScanDevicesButton_Click" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Discovered Devices List -->
+            <ItemsControl x:Name="DevicesList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Margin="0,0,0,12"
+                                Padding="16">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Type Icon -->
+                                <Border Width="42" Height="42" CornerRadius="8" Background="{ThemeResource LayerFillColorDefaultBrush}" VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE7F4;" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                </Border>
+
+                                <!-- Details -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                        <Border CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="6,2">
+                                            <TextBlock Text="{Binding ProviderId}" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding DetailsText}" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+
+                                <!-- Brightness Slider -->
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="Device Brightness" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Slider Minimum="0" Maximum="100" Value="{Binding BrightnessPercent, Mode=TwoWay}" />
+                                </StackPanel>
+
+                                <!-- Toggle Switch -->
+                                <ToggleSwitch Grid.Column="3" IsOn="{Binding IsEnabled, Mode=TwoWay}" OnContent="Active" OffContent="Off" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Dialog for Adding WLED -->
+            <ContentDialog x:Name="AddWledDialog"
+                           Title="Add WLED Device"
+                           PrimaryButtonText="Connect"
+                           CloseButtonText="Cancel"
+                           DefaultButton="Primary">
+                <StackPanel Spacing="16" Margin="0,12,0,0">
+                    <TextBlock Text="Enter the IP address or hostname of your ESP32/ESP8266 running WLED on your local network:"
+                               Style="{ThemeResource BodyTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBox x:Name="WledIpTextBox" Header="WLED IP Address" PlaceholderText="192.168.1.150" />
+                </StackPanel>
+            </ContentDialog>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

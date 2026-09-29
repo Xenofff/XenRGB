@@ -1,0 +1,12 @@
+{
+  "id": "plain-color",
+  "name": "Plain Color",
+  "version": "1.0.0",
+  "author": "XenRGB",
+  "description": "Applies a solid configurable color across all devices on the canvas.",
+  "category": "Basic",
+  "defaultParameters": {
+    "color": "#00A2FF",
+    "brightness": 1.0
+  }
+}

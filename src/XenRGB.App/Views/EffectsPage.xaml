@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="XenRGB.App.Views.EffectsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="24" Padding="32,24,32,32">
+            
+            <!-- Page Header -->
+            <Grid>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Effects" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <TextBlock Text="Choose and customize your active lighting effect, or load custom open-source community effects."
+                               Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" VerticalAlignment="Center">
+                    <Button Content="Open Effects Folder" Click="OpenFolderButton_Click" Style="{ThemeResource SubtleButtonStyle}" />
+                    <Button Content="Reload Effects" Click="ReloadEffectsButton_Click" Style="{ThemeResource DefaultButtonStyle}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Active Effect Parameters Card -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24">
+                <StackPanel Spacing="16">
+                    <Grid>
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock x:Name="ActiveEffectTitle" Text="Cotton Candy" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                                <Border CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="6,2">
+                                    <TextBlock x:Name="ActiveEffectCategory" Text="Active" FontSize="11" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock x:Name="ActiveEffectDescription" Text="Smooth flowing blue and purple gradient animation with gentle transitions."
+                                       Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,4" />
+
+                    <!-- Dynamically Generated Parameter Sliders & Pickers -->
+                    <TextBlock Text="Parameters" FontWeight="SemiBold" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                    <StackPanel x:Name="ParametersContainer" Spacing="16">
+                        <!-- Dynamic controls added in code-behind -->
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Available Effects Grid -->
+            <StackPanel Spacing="12">
+                <TextBlock Text="Available Effects" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                <ItemsControl x:Name="EffectsGallery">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="3" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="280"
+                                    Height="130"
+                                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Margin="0,0,16,16"
+                                    Padding="16">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Style="{ThemeResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Grid.Row="1" Text="{Binding Description}" Style="{ThemeResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+
+                                    <Button Grid.Row="2" Content="Activate" Click="ActivateEffect_Click" Tag="{Binding Id}"
+                                            HorizontalAlignment="Right" Style="{ThemeResource AccentButtonStyle}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
