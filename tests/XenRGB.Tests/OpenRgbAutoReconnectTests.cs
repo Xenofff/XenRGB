@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -56,19 +56,23 @@ public class OpenRgbAutoReconnectTests
             writer.Write((uint)0); // total size placeholder
             writer.Write((int)5); // deviceType = Keyboard (5)
             WriteString(writer, "Test Keyboard");
-            WriteString(writer, "Test Vendor");
+            WriteString(writer, "Test Vendor");   // vendor (protocol v1+)
             WriteString(writer, "Test Description");
             WriteString(writer, "1.0");
             WriteString(writer, "12345");
             WriteString(writer, "USB");
 
-            writer.Write((ushort)0); // mode count
-            writer.Write((int)0); // active mode
+            writer.Write((ushort)0); // mode count = 0
+            writer.Write((int)0);    // active mode
 
-            writer.Write((ushort)0); // zone count
-            writer.Write((ushort)1); // led count
+            writer.Write((ushort)0); // zone count = 0
+
+            writer.Write((ushort)1); // led count = 1
             WriteString(writer, "Key 1");
-            writer.Write((uint)0);
+            writer.Write((uint)0);   // led_value (present for protocol < 6)
+
+            // Device-level colors block (always present per spec)
+            writer.Write((ushort)0); // num_colors = 0
 
             return Task.FromResult(ms.ToArray());
         }
@@ -241,5 +245,106 @@ public class OpenRgbAutoReconnectTests
         Assert.True(mockDevice.TransmissionCount > 0);
         // OpenRGB was skipped without crashing engine loop
         Assert.Equal(0, client.UpdateLedsCallCount);
+    }
+
+    [Fact]
+    public async Task OpenRgb_DelayedHardwareDiscovery_PicksUpDeviceWhenReady()
+    {
+        // Simulate OpenRGB opening port 6742 immediately with 0 devices while USB scanning is underway
+        var client = new FakeOpenRgbClient
+        {
+            ShouldFailConnect = false,
+            ControllerCount = 0
+        };
+
+        using var provider = new OpenRgbProvider(client, "127.0.0.1", 6742, TimeSpan.FromMilliseconds(50));
+        await provider.InitializeAsync();
+
+        Assert.True(provider.IsConnected);
+        Assert.Empty(provider.Devices);
+        Assert.Contains("scanning devices", provider.ConnectionStatusMessage);
+
+        var discoveredTcs = new TaskCompletionSource<IRgbDevice>(TaskCreationOptions.RunContinuationsAsynchronously);
+        provider.DeviceDiscovered += (s, e) => discoveredTcs.TrySetResult(e.Device);
+
+        // Simulate OpenRGB finishing detection of HyperX Alloy Origins Core (87 LEDs)
+        client.ControllerCount = 1;
+
+        // Background loop should poll and discover the device
+        var discoveredDevice = await Task.WhenAny(discoveredTcs.Task, Task.Delay(2000));
+        Assert.Same(discoveredTcs.Task, discoveredDevice);
+
+        var device = await discoveredTcs.Task;
+        Assert.NotNull(device);
+        Assert.Equal("openrgb-0-test-keyboard", device.Id);
+        Assert.Single(provider.Devices);
+        Assert.Contains("1 device(s)", provider.ConnectionStatusMessage);
+    }
+
+    [Fact]
+    public async Task OpenRgbDevice_InFlightFrameDropping_DropsStaleFramesDuringSlowTransmission()
+    {
+        var delayTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var client = new SlowFakeOpenRgbClient(delayTcs.Task);
+
+        var device = new OpenRgbDevice(
+            client,
+            0,
+            "openrgb-0-hyperx",
+            "HyperX Alloy Origins Core",
+            RgbDeviceType.Keyboard,
+            new LedCoordinate[] { new(0, 0.5f, 0.5f, "LED1") });
+
+        // First frame: initiates transmission and awaits slow I/O
+        var frame1 = new RgbColor[] { RgbColor.Red };
+        var task1 = device.UpdateLedsAsync(frame1);
+
+        // Wait a few milliseconds to ensure frame 1 has acquired the in-flight lock
+        await Task.Delay(20);
+
+        // Second frame: arrives while frame 1 is still in-flight
+        var frame2 = new RgbColor[] { RgbColor.Blue };
+        var task2 = device.UpdateLedsAsync(frame2);
+        await task2; // Should return immediately because frame 2 is dropped as stale
+
+        Assert.Equal(1, client.SendAttempts);
+
+        // Now complete the slow transmission of frame 1
+        delayTcs.SetResult();
+        await task1;
+
+        Assert.Equal(1, device.TransmissionCount);
+
+        // Third frame: should now successfully transmit
+        var frame3 = new RgbColor[] { RgbColor.Green };
+        await device.UpdateLedsAsync(frame3);
+
+        Assert.Equal(2, device.TransmissionCount);
+        Assert.Equal(2, client.SendAttempts);
+    }
+
+    private sealed class SlowFakeOpenRgbClient : IOpenRgbClient
+    {
+        private readonly Task _delayTask;
+        public int SendAttempts { get; private set; }
+        public bool IsConnected => true;
+        public uint ServerProtocolVersion => 4;
+
+        public SlowFakeOpenRgbClient(Task delayTask)
+        {
+            _delayTask = delayTask;
+        }
+
+        public Task<bool> ConnectAsync(string host, int port, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<uint> GetControllerCountAsync(CancellationToken ct = default) => Task.FromResult(1u);
+        public Task<byte[]> GetControllerDataRawAsync(uint controllerIndex, CancellationToken ct = default) => Task.FromResult(Array.Empty<byte>());
+        public async Task SendUpdateLedsAsync(uint controllerIndex, ReadOnlyMemory<uint> bgrColors, CancellationToken ct = default)
+        {
+            SendAttempts++;
+            await _delayTask;
+        }
+        public Task RequestRescanAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public void Disconnect() { }
+        public void Dispose() { }
     }
 }

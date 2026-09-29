@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -218,6 +218,9 @@ public class SpatialEffectTests
             writer.Write((uint)i);
         }
 
+
+        // Device-level colors block (always present per spec, even if num_colors == 0)
+        writer.Write((ushort)0); // num_colors = 0
         client.ControllerData = ms.ToArray();
 
         using var provider = new OpenRgbProvider(client, "127.0.0.1", 6742);

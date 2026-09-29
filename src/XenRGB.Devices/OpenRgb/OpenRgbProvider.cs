@@ -106,14 +106,36 @@ public sealed class OpenRgbProvider : IDeviceProvider
 
     private async Task ReconnectLoopAsync()
     {
-        using var timer = new PeriodicTimer(_reconnectInterval);
-
         while (!_loopCts.IsCancellationRequested && !_isDisposed)
         {
+            int devCount;
+            lock (_devicesLock) devCount = _devices.Count;
+
+            TimeSpan delay;
+            if (!_client.IsConnected)
+            {
+                // Quick retry when disconnected from OpenRGB server
+                delay = TimeSpan.FromSeconds(2);
+            }
+            else if (devCount == 0)
+            {
+                // Rapid polling while OpenRGB is scanning hardware devices at startup
+                delay = TimeSpan.FromSeconds(1);
+            }
+            else
+            {
+                // Standard heartbeat interval when devices are connected
+                delay = _reconnectInterval;
+            }
+
+            if (delay > _reconnectInterval)
+            {
+                delay = _reconnectInterval;
+            }
+
             try
             {
-                if (!await timer.WaitForNextTickAsync(_loopCts.Token).ConfigureAwait(false))
-                    break;
+                await Task.Delay(delay, _loopCts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -125,10 +147,30 @@ public sealed class OpenRgbProvider : IDeviceProvider
 
             try
             {
-                bool needsReconnect = !_client.IsConnected || HasDisconnectedOrErrorDevices();
+                lock (_devicesLock) devCount = _devices.Count;
+                bool needsReconnect = !_client.IsConnected || devCount == 0 || HasDisconnectedOrErrorDevices();
                 if (needsReconnect)
                 {
                     await TryConnectAndDiscoverAsync(_loopCts.Token).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Light verification: check if OpenRGB detected new devices or if server disconnected
+                    try
+                    {
+                        uint currentCount = await _client.GetControllerCountAsync(_loopCts.Token).ConfigureAwait(false);
+                        if (currentCount != (uint)devCount)
+                        {
+                            await TryConnectAndDiscoverAsync(_loopCts.Token).ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _client.Disconnect();
+                        MarkDevicesDisconnected();
+                        LastError = $"OpenRGB communication error: {ex.Message}";
+                        ConnectionStatusMessage = $"Disconnected ({LastError})";
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -175,7 +217,9 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 LastError = null;
                 int count;
                 lock (_devicesLock) count = _devices.Count;
-                ConnectionStatusMessage = $"Connected to {_host}:{_port} (v{_client.ServerProtocolVersion}, {count} device(s))";
+                ConnectionStatusMessage = count == 0
+                    ? $"Connected to {_host}:{_port} (v{_client.ServerProtocolVersion}, scanning devices...)"
+                    : $"Connected to {_host}:{_port} (v{_client.ServerProtocolVersion}, {count} device(s))";
             }
             return discovered;
         }
@@ -265,6 +309,18 @@ public sealed class OpenRgbProvider : IDeviceProvider
             }
         }
 
+        lock (_devicesLock)
+        {
+            foreach (var dev in _devices)
+            {
+                if (dev.ControllerIndex >= count && dev.ConnectionState == DeviceConnectionState.Connected)
+                {
+                    dev.ConnectionState = DeviceConnectionState.Disconnected;
+                    updatedDevices.Add(dev);
+                }
+            }
+        }
+
         // Notify for any newly discovered devices outside lock
         foreach (var dev in newlyDiscovered)
         {
@@ -339,30 +395,7 @@ public sealed class OpenRgbProvider : IDeviceProvider
             int activeMode = reader.ReadInt32();
             for (int m = 0; m < modeCount; m++)
             {
-                ReadLengthPrefixedString(reader); // mode name
-                if (protocolVersion < 6) reader.ReadInt32(); // value
-                reader.ReadUInt32(); // flags
-                reader.ReadUInt32(); // speed_min
-                reader.ReadUInt32(); // speed_max
-                if (protocolVersion >= 3)
-                {
-                    reader.ReadUInt32(); // brightness_min
-                    reader.ReadUInt32(); // brightness_max
-                }
-                reader.ReadUInt32(); // colors_min
-                reader.ReadUInt32(); // colors_max
-                reader.ReadUInt32(); // speed
-                if (protocolVersion >= 3)
-                {
-                    reader.ReadUInt32(); // brightness
-                }
-                reader.ReadUInt32(); // direction
-                reader.ReadUInt32(); // color_mode
-                ushort numColors = reader.ReadUInt16();
-                if (numColors > 0)
-                {
-                    reader.ReadBytes(numColors * 4); // colors
-                }
+                SkipModeData(reader, protocolVersion);
             }
 
             // Zones
@@ -371,16 +404,16 @@ public sealed class OpenRgbProvider : IDeviceProvider
             for (int z = 0; z < zoneCount; z++)
             {
                 ReadLengthPrefixedString(reader); // zone name
-                int zType = reader.ReadInt32(); // zone type
-                uint zLedsMin = reader.ReadUInt32();
-                uint zLedsMax = reader.ReadUInt32();
+                reader.ReadInt32();  // zone type
+                reader.ReadUInt32(); // leds_min
+                reader.ReadUInt32(); // leds_max
                 uint zLedsCount = reader.ReadUInt32();
                 totalZoneLeds += (int)zLedsCount;
 
                 ushort matrixLen = reader.ReadUInt16();
                 if (matrixLen > 0)
                 {
-                    reader.ReadBytes(matrixLen);
+                    reader.ReadBytes(matrixLen); // matrix map data (height + width + data)
                 }
 
                 if (protocolVersion >= 4)
@@ -389,14 +422,14 @@ public sealed class OpenRgbProvider : IDeviceProvider
                     for (int s = 0; s < numSegments; s++)
                     {
                         ReadLengthPrefixedString(reader); // segment name
-                        reader.ReadInt32(); // segment type
+                        reader.ReadInt32();  // segment type
                         reader.ReadUInt32(); // start_idx
                         reader.ReadUInt32(); // leds_count
                         if (protocolVersion >= 6)
                         {
                             ushort segMatLen = reader.ReadUInt16();
-                            if (segMatLen > 0) reader.ReadBytes(segMatLen);
-                            reader.ReadUInt32(); // flags
+                            if (segMatLen > 0) reader.ReadBytes(segMatLen); // segment matrix map
+                            reader.ReadUInt32(); // segment flags
                         }
                     }
                 }
@@ -404,6 +437,18 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 if (protocolVersion >= 5)
                 {
                     reader.ReadUInt32(); // zone flags
+                }
+
+                // Protocol v6: per-zone mode data
+                if (protocolVersion >= 6)
+                {
+                    reader.ReadInt32();  // zone_active_mode
+                    ushort zoneNumModes = reader.ReadUInt16();
+                    for (int m = 0; m < zoneNumModes; m++)
+                    {
+                        SkipModeData(reader, protocolVersion);
+                    }
+                    ReadLengthPrefixedString(reader); // zone_display_name
                 }
             }
 
@@ -418,7 +463,7 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 string ledName = ReadLengthPrefixedString(reader);
                 if (protocolVersion < 6)
                 {
-                    reader.ReadUInt32(); // value
+                    reader.ReadUInt32(); // led_value (removed in v6)
                 }
 
                 // Calculate normalized coordinate
@@ -434,6 +479,35 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 }
 
                 ledCoordinates.Add(new LedCoordinate(l, localX, localY, ledName));
+            }
+
+            // Device-level colors block (always present, even if num_colors == 0)
+            ushort numColors = reader.ReadUInt16();
+            if (numColors > 0)
+            {
+                reader.ReadBytes(numColors * 4); // RGBColor[num_colors]
+            }
+
+            // Protocol v5: LED alternate display names + controller flags
+            if (protocolVersion >= 5)
+            {
+                ushort numDisplayNames = reader.ReadUInt16();
+                for (int d = 0; d < numDisplayNames; d++)
+                {
+                    ReadLengthPrefixedString(reader); // led_display_name
+                }
+                reader.ReadUInt32(); // controller flags
+            }
+
+            // Protocol v6: display_name + configuration
+            if (protocolVersion >= 6)
+            {
+                ReadLengthPrefixedString(reader); // display_name
+                uint configLen = reader.ReadUInt32();
+                if (configLen > 0)
+                {
+                    reader.ReadBytes((int)configLen); // configuration JSON
+                }
             }
 
             if (ledCoordinates.Count == 0 && totalZoneLeds > 0)
@@ -468,6 +542,42 @@ public sealed class OpenRgbProvider : IDeviceProvider
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Skips all fields of one Mode Data block according to the negotiated protocol version.
+    /// Per the official OpenRGB SDK spec:
+    ///   mode_name (string), mode_value (int32, &lt;v6 only), mode_flags (uint32),
+    ///   speed_min, speed_max (uint32), brightness_min, brightness_max (uint32, v3+),
+    ///   colors_min, colors_max, speed (uint32), brightness (uint32, v3+),
+    ///   direction, color_mode (uint32), num_colors (uint16), colors (4*N bytes)
+    /// </summary>
+    private static void SkipModeData(BinaryReader reader, uint protocolVersion)
+    {
+        ReadLengthPrefixedString(reader); // mode name
+        if (protocolVersion < 6) reader.ReadInt32(); // mode_value (removed in v6)
+        reader.ReadUInt32(); // mode_flags
+        reader.ReadUInt32(); // speed_min
+        reader.ReadUInt32(); // speed_max
+        if (protocolVersion >= 3)
+        {
+            reader.ReadUInt32(); // brightness_min
+            reader.ReadUInt32(); // brightness_max
+        }
+        reader.ReadUInt32(); // colors_min
+        reader.ReadUInt32(); // colors_max
+        reader.ReadUInt32(); // speed
+        if (protocolVersion >= 3)
+        {
+            reader.ReadUInt32(); // brightness
+        }
+        reader.ReadUInt32(); // direction
+        reader.ReadUInt32(); // color_mode
+        ushort numModeColors = reader.ReadUInt16();
+        if (numModeColors > 0)
+        {
+            reader.ReadBytes(numModeColors * 4); // mode colors
         }
     }
 

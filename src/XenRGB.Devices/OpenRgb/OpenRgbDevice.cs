@@ -32,6 +32,7 @@ public sealed class OpenRgbDevice : IRgbDevice
     public long TransmissionCount { get; private set; }
 
     private readonly uint[] _bgrBuffer;
+    private int _isSending;
 
     public OpenRgbDevice(
         IOpenRgbClient client,
@@ -64,18 +65,25 @@ public sealed class OpenRgbDevice : IRgbDevice
         if (!_throttler.ShouldTransmit(colors.Span[..count]))
             return;
 
-        for (int i = 0; i < count; i++)
-        {
-            var c = colors.Span[i];
-            CurrentColors[i] = c;
-            // OpenRGB expects 0x00BBGGRR format
-            _bgrBuffer[i] = (uint)(c.R | (c.G << 8) | (c.B << 16));
-        }
+        // Drop stale frame if previous transmission is still in-flight
+        if (Interlocked.CompareExchange(ref _isSending, 1, 0) != 0)
+            return;
 
         try
         {
+            for (int i = 0; i < count; i++)
+            {
+                var c = colors.Span[i];
+                CurrentColors[i] = c;
+                // OpenRGB expects 0x00BBGGRR format
+                _bgrBuffer[i] = (uint)(c.R | (c.G << 8) | (c.B << 16));
+            }
+
+            // Snapshot transmitted frame in throttler immediately before network await
+            // so subsequent engine frame buffer mutations during I/O cannot corrupt throttler state
+            _throttler.MarkTransmitted(CurrentColors.AsSpan(0, count));
+
             await _client.SendUpdateLedsAsync(ControllerIndex, _bgrBuffer.AsMemory(0, count), ct).ConfigureAwait(false);
-            _throttler.MarkTransmitted(colors.Span[..count]);
             TransmissionCount++;
         }
         catch
@@ -83,11 +91,17 @@ public sealed class OpenRgbDevice : IRgbDevice
             ConnectionState = DeviceConnectionState.Error;
             _throttler.Reset();
         }
+        finally
+        {
+            Volatile.Write(ref _isSending, 0);
+        }
     }
 
     public async Task SetPowerAsync(bool on, CancellationToken ct = default)
     {
         _throttler.Reset();
+        Volatile.Write(ref _isSending, 0);
+
         if (!on)
         {
             Array.Fill(CurrentColors, RgbColor.Black);

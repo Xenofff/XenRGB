@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -215,8 +215,8 @@ public class OpenRgbProtocolAndIntegrationTests
         writer.Write((int)0); // active mode
         // Mode 0:
         WriteString(writer, "Direct");
-        if (protocolVersion < 6) writer.Write((int)0); // value
-        writer.Write((uint)0); // flags
+        if (protocolVersion < 6) writer.Write((int)0); // mode_value (removed in v6)
+        writer.Write((uint)0); // mode_flags
         writer.Write((uint)0); // speed_min
         writer.Write((uint)0); // speed_max
         if (protocolVersion >= 3)
@@ -231,18 +231,18 @@ public class OpenRgbProtocolAndIntegrationTests
         {
             writer.Write((uint)100); // brightness
         }
-        writer.Write((uint)0); // direction
-        writer.Write((uint)0); // color_mode
-        writer.Write((ushort)0); // numColors
+        writer.Write((uint)0);   // direction
+        writer.Write((uint)0);   // color_mode
+        writer.Write((ushort)0); // num_colors in mode = 0
 
         // Zones count: 1
         writer.Write((ushort)1);
         WriteString(writer, "Keys Zone");
-        writer.Write((int)2); // type = matrix
-        writer.Write((uint)ledsCount); // leds_min
-        writer.Write((uint)ledsCount); // leds_max
-        writer.Write((uint)ledsCount); // leds_count
-        writer.Write((ushort)0); // matrixLen = 0
+        writer.Write((int)2);           // zone type = matrix
+        writer.Write((uint)ledsCount);  // leds_min
+        writer.Write((uint)ledsCount);  // leds_max
+        writer.Write((uint)ledsCount);  // leds_count
+        writer.Write((ushort)0);        // matrixLen = 0 (no matrix map)
 
         if (protocolVersion >= 4)
         {
@@ -250,7 +250,14 @@ public class OpenRgbProtocolAndIntegrationTests
         }
         if (protocolVersion >= 5)
         {
-            writer.Write((uint)0); // zone flags
+            writer.Write((uint)0); // zone_flags
+        }
+        // Protocol v6: per-zone mode data
+        if (protocolVersion >= 6)
+        {
+            writer.Write((int)0);    // zone_active_mode
+            writer.Write((ushort)0); // zone_num_modes = 0
+            WriteString(writer, "Keys Zone Display Name"); // zone_display_name
         }
 
         // LEDs
@@ -260,13 +267,29 @@ public class OpenRgbProtocolAndIntegrationTests
             WriteString(writer, $"Key {i + 1}");
             if (protocolVersion < 6)
             {
-                writer.Write((uint)i);
+                writer.Write((uint)i); // led_value (removed in v6)
             }
+        }
+
+        // Device-level colors block (always present per spec, even for protocol v0)
+        writer.Write((ushort)0); // num_colors = 0
+
+        // Protocol v5: LED alternate display names + controller flags
+        if (protocolVersion >= 5)
+        {
+            writer.Write((ushort)0); // num_led_display_names = 0
+            writer.Write((uint)0);   // controller flags
+        }
+
+        // Protocol v6: display_name + configuration
+        if (protocolVersion >= 6)
+        {
+            WriteString(writer, "HyperX Alloy Origins Core"); // display_name
+            writer.Write((uint)0); // configuration_len = 0 (empty JSON config)
         }
 
         return ms.ToArray();
     }
-
     private static void WriteString(BinaryWriter writer, string str)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(str + "\0");

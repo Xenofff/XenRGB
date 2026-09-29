@@ -158,7 +158,6 @@ public sealed class AppCoordinator : IDisposable
 
     private void SyncProviderDevices(IReadOnlyList<IRgbDevice> providerDevices)
     {
-        bool changed = false;
         lock (AllDevices)
         {
             foreach (var dev in providerDevices)
@@ -172,14 +171,18 @@ public sealed class AppCoordinator : IDisposable
                     {
                         Canvas.AddOrUpdatePlacement(CreateDefaultPlacement(dev));
                     }
-                    changed = true;
+                }
+                else
+                {
+                    if (Canvas.GetPlacement(dev.Id) == null)
+                    {
+                        Canvas.AddOrUpdatePlacement(CreateDefaultPlacement(dev));
+                    }
                 }
             }
         }
-        if (changed)
-        {
-            DevicesChanged?.Invoke(this, EventArgs.Empty);
-        }
+
+        DevicesChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void WireProvider(IDeviceProvider provider)
