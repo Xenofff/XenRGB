@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,66 +11,232 @@ namespace XenRGB.Devices.OpenRgb;
 
 /// <summary>
 /// Device provider connecting to local or network OpenRGB instance.
+/// Includes a resilient background auto-reconnect loop to handle startup latency and server crashes.
 /// </summary>
 public sealed class OpenRgbProvider : IDeviceProvider
 {
-    private readonly OpenRgbClient _client = new();
-    private readonly List<IRgbDevice> _devices = new();
+    private readonly IOpenRgbClient _client;
+    private readonly List<OpenRgbDevice> _devices = new();
+    private readonly object _devicesLock = new();
+    private readonly SemaphoreSlim _connectLock = new(1, 1);
+    private readonly CancellationTokenSource _loopCts = new();
     private readonly string _host;
     private readonly int _port;
+    private readonly TimeSpan _reconnectInterval;
+
+    private Task? _reconnectLoopTask;
+    private readonly object _loopTaskLock = new();
+    private bool _isDisposed;
 
     public string ProviderId => "openrgb-provider";
     public string DisplayName => "OpenRGB";
     public bool IsConnected => _client.IsConnected;
+    public TimeSpan ReconnectInterval => _reconnectInterval;
 
     public event EventHandler<DeviceEventArgs>? DeviceDiscovered;
     public event EventHandler<DeviceEventArgs>? DeviceRemoved;
 
-    public OpenRgbProvider(string host = "127.0.0.1", int port = 6742)
+    public OpenRgbProvider(string host = "127.0.0.1", int port = 6742, TimeSpan reconnectInterval = default)
+        : this(new OpenRgbClient(), host, port, reconnectInterval)
     {
+    }
+
+    public OpenRgbProvider(IOpenRgbClient client, string host = "127.0.0.1", int port = 6742, TimeSpan reconnectInterval = default)
+    {
+        _client = client ?? throw new ArgumentNullException(nameof(client));
         _host = host;
         _port = port;
+        _reconnectInterval = reconnectInterval > TimeSpan.Zero ? reconnectInterval : TimeSpan.FromSeconds(10);
     }
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        bool connected = await _client.ConnectAsync(_host, _port, ct).ConfigureAwait(false);
-        if (connected)
+        try
         {
-            await DiscoverDevicesAsync(ct).ConfigureAwait(false);
+            await TryConnectAndDiscoverAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Do not throw at startup if OpenRGB is not running
+        }
+        finally
+        {
+            StartReconnectLoop();
+        }
+    }
+
+    public void StartReconnectLoop()
+    {
+        if (_isDisposed) return;
+
+        lock (_loopTaskLock)
+        {
+            if (_reconnectLoopTask != null || _isDisposed)
+                return;
+
+            _reconnectLoopTask = Task.Run(ReconnectLoopAsync);
+        }
+    }
+
+    private async Task ReconnectLoopAsync()
+    {
+        using var timer = new PeriodicTimer(_reconnectInterval);
+
+        while (!_loopCts.IsCancellationRequested && !_isDisposed)
+        {
+            try
+            {
+                if (!await timer.WaitForNextTickAsync(_loopCts.Token).ConfigureAwait(false))
+                    break;
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            if (_loopCts.IsCancellationRequested || _isDisposed)
+                break;
+
+            try
+            {
+                bool needsReconnect = !_client.IsConnected || HasDisconnectedOrErrorDevices();
+                if (needsReconnect)
+                {
+                    await TryConnectAndDiscoverAsync(_loopCts.Token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch
+            {
+                // Silently continue polling to survive crashes and transient network drops
+            }
+        }
+    }
+
+    public async Task<bool> TryConnectAndDiscoverAsync(CancellationToken ct = default)
+    {
+        if (_isDisposed) return false;
+
+        try
+        {
+            await _connectLock.WaitAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return false;
+        }
+
+        try
+        {
+            if (!_client.IsConnected)
+            {
+                bool ok = await _client.ConnectAsync(_host, _port, ct).ConfigureAwait(false);
+                if (!ok)
+                {
+                    MarkDevicesDisconnected();
+                    return false;
+                }
+            }
+
+            return await DiscoverOrRefreshDevicesAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+        catch
+        {
+            _client.Disconnect();
+            MarkDevicesDisconnected();
+            return false;
+        }
+        finally
+        {
+            try { _connectLock.Release(); } catch { }
         }
     }
 
     public async Task<IReadOnlyList<IRgbDevice>> DiscoverDevicesAsync(CancellationToken ct = default)
     {
-        if (!_client.IsConnected)
+        await TryConnectAndDiscoverAsync(ct).ConfigureAwait(false);
+        lock (_devicesLock)
         {
-            bool ok = await _client.ConnectAsync(_host, _port, ct).ConfigureAwait(false);
-            if (!ok) return Array.Empty<IRgbDevice>();
+            return _devices.Cast<IRgbDevice>().ToList().AsReadOnly();
         }
+    }
 
+    private async Task<bool> DiscoverOrRefreshDevicesAsync(CancellationToken ct)
+    {
         uint count = await _client.GetControllerCountAsync(ct).ConfigureAwait(false);
-        _devices.Clear();
+        var newlyDiscovered = new List<OpenRgbDevice>();
 
         for (uint i = 0; i < count; i++)
         {
             try
             {
                 byte[] raw = await _client.GetControllerDataRawAsync(i, ct).ConfigureAwait(false);
-                var device = ParseControllerData(i, raw);
-                if (device != null)
+                var parsed = ParseControllerData(i, raw);
+                if (parsed == null) continue;
+
+                lock (_devicesLock)
                 {
-                    _devices.Add(device);
-                    DeviceDiscovered?.Invoke(this, new DeviceEventArgs(device));
+                    var existing = _devices.FirstOrDefault(d => d.Id == parsed.Id);
+                    if (existing != null)
+                    {
+                        existing.ConnectionState = DeviceConnectionState.Connected;
+                        existing.Throttler.Reset();
+                    }
+                    else
+                    {
+                        _devices.Add(parsed);
+                        newlyDiscovered.Add(parsed);
+                    }
                 }
             }
             catch
             {
-                // Continue with other controllers if one fails
+                // Continue with other controllers
             }
         }
 
-        return _devices.AsReadOnly();
+        // Notify for any newly discovered devices outside lock
+        foreach (var dev in newlyDiscovered)
+        {
+            DeviceDiscovered?.Invoke(this, new DeviceEventArgs(dev));
+        }
+
+        return true;
+    }
+
+    private bool HasDisconnectedOrErrorDevices()
+    {
+        lock (_devicesLock)
+        {
+            for (int i = 0; i < _devices.Count; i++)
+            {
+                if (_devices[i].ConnectionState != DeviceConnectionState.Connected)
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    private void MarkDevicesDisconnected()
+    {
+        lock (_devicesLock)
+        {
+            foreach (var dev in _devices)
+            {
+                dev.ConnectionState = DeviceConnectionState.Disconnected;
+            }
+        }
     }
 
     private OpenRgbDevice? ParseControllerData(uint index, byte[] data)
@@ -198,12 +365,23 @@ public sealed class OpenRgbProvider : IDeviceProvider
 
     public void Dispose()
     {
+        if (_isDisposed) return;
+        _isDisposed = true;
+
+        try { _loopCts.Cancel(); } catch { }
+        try { _reconnectLoopTask?.Wait(TimeSpan.FromSeconds(1)); } catch { }
+        _loopCts.Dispose();
+        _connectLock.Dispose();
+
         _client.Dispose();
-        foreach (var dev in _devices)
+        lock (_devicesLock)
         {
-            DeviceRemoved?.Invoke(this, new DeviceEventArgs(dev));
-            dev.Dispose();
+            foreach (var dev in _devices)
+            {
+                DeviceRemoved?.Invoke(this, new DeviceEventArgs(dev));
+                dev.Dispose();
+            }
+            _devices.Clear();
         }
-        _devices.Clear();
     }
 }

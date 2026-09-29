@@ -10,7 +10,7 @@ namespace XenRGB.Devices.OpenRgb;
 /// <summary>
 /// Low-level async client for the OpenRGB SDK network protocol over TCP (port 6742).
 /// </summary>
-public sealed class OpenRgbClient : IDisposable
+public sealed class OpenRgbClient : IOpenRgbClient
 {
     private const uint Magic = 0x4247524F; // "ORGB" in little-endian
     public const int DefaultPort = 6742;
@@ -24,28 +24,42 @@ public sealed class OpenRgbClient : IDisposable
     private TcpClient? _tcp;
     private NetworkStream? _stream;
     private readonly SemaphoreSlim _networkLock = new(1, 1);
+    private bool _isDisposed;
 
-    public bool IsConnected => _tcp?.Connected == true;
+    public bool IsConnected => !_isDisposed && _tcp?.Connected == true;
     public uint ServerProtocolVersion { get; private set; }
 
     public async Task<bool> ConnectAsync(string host, int port, CancellationToken ct = default)
     {
-        await _networkLock.WaitAsync(ct).ConfigureAwait(false);
+        if (_isDisposed) return false;
+
+        try
+        {
+            await _networkLock.WaitAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return false;
+        }
+
         try
         {
             DisconnectInternal();
             _tcp = new TcpClient();
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(3));
-            using var reg = timeoutCts.Token.Register(() => _tcp?.Close());
+            using var reg = timeoutCts.Token.Register(() =>
+            {
+                try { _tcp?.Close(); } catch { }
+            });
 
             await _tcp.ConnectAsync(host, port, timeoutCts.Token).ConfigureAwait(false);
             _stream = _tcp.GetStream();
 
             // 1. Negotiate protocol version (we request v4)
             byte[] versionPayload = BitConverter.GetBytes((uint)4);
-            await SendPacketInternalAsync(0, CommandRequestProtocolVersion, versionPayload, ct).ConfigureAwait(false);
-            var reply = await ReadPacketInternalAsync(ct).ConfigureAwait(false);
+            await SendPacketInternalAsync(0, CommandRequestProtocolVersion, versionPayload, timeoutCts.Token).ConfigureAwait(false);
+            var reply = await ReadPacketInternalAsync(timeoutCts.Token).ConfigureAwait(false);
             if (reply.Data.Length >= 4)
             {
                 ServerProtocolVersion = BitConverter.ToUInt32(reply.Data, 0);
@@ -53,7 +67,7 @@ public sealed class OpenRgbClient : IDisposable
 
             // 2. Set Client Name
             byte[] nameBytes = Encoding.ASCII.GetBytes("XenRGB\0");
-            await SendPacketInternalAsync(0, CommandSetClientName, nameBytes, ct).ConfigureAwait(false);
+            await SendPacketInternalAsync(0, CommandSetClientName, nameBytes, timeoutCts.Token).ConfigureAwait(false);
 
             return true;
         }
@@ -64,7 +78,7 @@ public sealed class OpenRgbClient : IDisposable
         }
         finally
         {
-            _networkLock.Release();
+            try { _networkLock.Release(); } catch { }
         }
     }
 
@@ -179,17 +193,24 @@ public sealed class OpenRgbClient : IDisposable
         }
     }
 
+    public void Disconnect()
+    {
+        DisconnectInternal();
+    }
+
     private void DisconnectInternal()
     {
-        _stream?.Dispose();
+        try { _stream?.Dispose(); } catch { }
         _stream = null;
-        _tcp?.Dispose();
+        try { _tcp?.Dispose(); } catch { }
         _tcp = null;
     }
 
     public void Dispose()
     {
+        if (_isDisposed) return;
+        _isDisposed = true;
         DisconnectInternal();
-        _networkLock.Dispose();
+        try { _networkLock.Dispose(); } catch { }
     }
 }

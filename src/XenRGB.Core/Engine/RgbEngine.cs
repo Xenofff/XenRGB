@@ -114,6 +114,11 @@ public sealed class RgbEngine : IDisposable
 
             if (_isLightingEnabled)
             {
+                foreach (var device in _devices)
+                {
+                    _ = device.SetPowerAsync(true);
+                }
+
                 // Wake up engine thread
                 _wakeEvent.Set();
             }

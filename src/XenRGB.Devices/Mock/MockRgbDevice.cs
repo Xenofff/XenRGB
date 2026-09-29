@@ -25,25 +25,45 @@ public sealed class MockRgbDevice : IRgbDevice
     public float Brightness { get; set; } = 1.0f;
     public bool IsPoweredOn { get; private set; } = true;
 
-    public MockRgbDevice(string id, string name, RgbDeviceType type, IReadOnlyList<LedCoordinate> coordinates)
+    private readonly DeviceFrameThrottler _throttler;
+    public DeviceFrameThrottler Throttler => _throttler;
+    public long TransmissionCount { get; private set; }
+
+    public MockRgbDevice(
+        string id,
+        string name,
+        RgbDeviceType type,
+        IReadOnlyList<LedCoordinate> coordinates,
+        TimeSpan? heartbeatInterval = null,
+        TimeProvider? timeProvider = null)
     {
         Id = id;
         Name = name;
         DeviceType = type;
         LedCoordinates = coordinates;
         CurrentColors = new RgbColor[coordinates.Count];
+        _throttler = new DeviceFrameThrottler(heartbeatInterval, timeProvider);
     }
 
     public Task UpdateLedsAsync(ReadOnlyMemory<RgbColor> colors, CancellationToken ct = default)
     {
+        if (!IsEnabled || ConnectionState != DeviceConnectionState.Connected)
+            return Task.CompletedTask;
+
         int copyCount = Math.Min(colors.Length, CurrentColors.Length);
+        if (!_throttler.ShouldTransmit(colors.Span[..copyCount]))
+            return Task.CompletedTask;
+
         colors.Span[..copyCount].CopyTo(CurrentColors.AsSpan(0, copyCount));
+        _throttler.MarkTransmitted(colors.Span[..copyCount]);
+        TransmissionCount++;
         return Task.CompletedTask;
     }
 
     public Task SetPowerAsync(bool on, CancellationToken ct = default)
     {
         IsPoweredOn = on;
+        _throttler.Reset();
         if (!on)
         {
             Array.Fill(CurrentColors, RgbColor.Black);

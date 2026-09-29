@@ -36,7 +36,18 @@ public sealed class WledDevice : IRgbDevice
     public bool IsEnabled { get; set; } = true;
     public float Brightness { get; set; } = 1.0f;
 
-    public WledDevice(string ipAddress, HttpClient http, UdpClient udp, string? name = null, int ledCount = 60)
+    private readonly DeviceFrameThrottler _throttler;
+    public DeviceFrameThrottler Throttler => _throttler;
+    public long TransmissionCount { get; private set; }
+
+    public WledDevice(
+        string ipAddress,
+        HttpClient http,
+        UdpClient udp,
+        string? name = null,
+        int ledCount = 60,
+        TimeSpan? heartbeatInterval = null,
+        TimeProvider? timeProvider = null)
     {
         IpAddress = ipAddress;
         _http = http ?? throw new ArgumentNullException(nameof(http));
@@ -52,6 +63,8 @@ public sealed class WledDevice : IRgbDevice
         _udpBuffer[1] = 2; // Timeout: 2 seconds
 
         LedCoordinates = GenerateStripCoordinates(LedCount);
+        // Default heartbeat is 1000ms, which safely refreshes WLED's 2000ms timeout
+        _throttler = new DeviceFrameThrottler(heartbeatInterval ?? TimeSpan.FromMilliseconds(1000), timeProvider);
     }
 
     public async Task RefreshStateAsync(CancellationToken ct = default)
@@ -93,6 +106,7 @@ public sealed class WledDevice : IRgbDevice
         LedCount = newCount;
         CurrentColors = new RgbColor[LedCount];
         LedCoordinates = GenerateStripCoordinates(LedCount);
+        _throttler.Reset();
     }
 
     public async Task UpdateLedsAsync(ReadOnlyMemory<RgbColor> colors, CancellationToken ct = default)
@@ -101,6 +115,9 @@ public sealed class WledDevice : IRgbDevice
             return;
 
         int count = Math.Min(colors.Length, LedCount);
+        if (!_throttler.ShouldTransmit(colors.Span[..count]))
+            return;
+
         for (int i = 0; i < count; i++)
         {
             CurrentColors[i] = colors.Span[i];
@@ -129,6 +146,8 @@ public sealed class WledDevice : IRgbDevice
             }
 
             await _udp.SendAsync(packet.AsMemory(0, requiredLength), IpAddress, WledUdpPort).ConfigureAwait(false);
+            _throttler.MarkTransmitted(colors.Span[..count]);
+            TransmissionCount++;
         }
         catch
         {
@@ -142,6 +161,7 @@ public sealed class WledDevice : IRgbDevice
 
     public async Task SetPowerAsync(bool on, CancellationToken ct = default)
     {
+        _throttler.Reset();
         try
         {
             string payload = on ? "{\"on\":true}" : "{\"on\":false}";
