@@ -19,6 +19,7 @@ public sealed partial class DashboardPage : Page
 {
     private readonly AppCoordinator _coord = AppCoordinator.Instance;
     private readonly DispatcherTimer _ledRefreshTimer = new();
+    private bool _isInitializing = true;
 
     private CanvasDevicePlacement? _selectedPlacement;
     private bool _isDragging;
@@ -49,6 +50,7 @@ public sealed partial class DashboardPage : Page
         UpdateStatusUi();
         RebuildCanvasVisuals();
         _ledRefreshTimer.Start();
+        _isInitializing = false;
     }
 
     private void OnPageUnloaded(object sender, RoutedEventArgs e)
@@ -172,20 +174,27 @@ public sealed partial class DashboardPage : Page
 
     private void OnLedRefreshTick(object? sender, object e)
     {
-        if (!_coord.Engine.IsLightingEnabled) return;
-
-        double canvasWidth = SpatialSurface.ActualWidth > 0 ? SpatialSurface.ActualWidth : 800;
-        double canvasHeight = SpatialSurface.ActualHeight > 0 ? SpatialSurface.ActualHeight : 420;
-
-        foreach (var (devId, (border, _)) in _deviceVisuals)
+        try
         {
-            var dev = _coord.AllDevices.FirstOrDefault(d => d.Id == devId);
-            if (dev == null || dev.CurrentColors == null || dev.CurrentColors.Length == 0)
-                continue;
+            if (!_coord.Engine.IsLightingEnabled) return;
 
-            // Sample an average or center color to glow the border background
-            var midColor = dev.CurrentColors[dev.CurrentColors.Length / 2];
-            border.Background = new SolidColorBrush(Color.FromArgb(160, midColor.R, midColor.G, midColor.B));
+            double canvasWidth = SpatialSurface.ActualWidth > 0 ? SpatialSurface.ActualWidth : 800;
+            double canvasHeight = SpatialSurface.ActualHeight > 0 ? SpatialSurface.ActualHeight : 420;
+
+            foreach (var (devId, (border, _)) in _deviceVisuals)
+            {
+                var dev = _coord.AllDevices.FirstOrDefault(d => d.Id == devId);
+                if (dev == null || dev.CurrentColors == null || dev.CurrentColors.Length == 0)
+                    continue;
+
+                // Sample an average or center color to glow the border background
+                var midColor = dev.CurrentColors[dev.CurrentColors.Length / 2];
+                border.Background = new SolidColorBrush(Color.FromArgb(160, midColor.R, midColor.G, midColor.B));
+            }
+        }
+        catch
+        {
+            // Ignore transient render tick errors
         }
     }
 
@@ -313,8 +322,12 @@ public sealed partial class DashboardPage : Page
 
     private void MasterBrightnessSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
+        if (_isInitializing || BrightnessLabel == null || MasterBrightnessSlider == null) return;
         float factor = (float)(MasterBrightnessSlider.Value / 100.0);
-        _coord.Engine.MasterBrightness = factor;
+        if (_coord?.Engine != null)
+        {
+            _coord.Engine.MasterBrightness = factor;
+        }
         BrightnessLabel.Text = $"{(int)MasterBrightnessSlider.Value}%";
     }
 

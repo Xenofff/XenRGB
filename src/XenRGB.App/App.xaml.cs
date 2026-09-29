@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
@@ -29,6 +31,18 @@ public partial class App : Application
     /// </summary>
     public App()
     {
+        UnhandledException += (sender, args) =>
+        {
+            try
+            {
+                var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "XenRGB");
+                Directory.CreateDirectory(dir);
+                var text = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [WinUI UnhandledException] Message: {args.Message}\nException: {args.Exception}\nStackTrace:\n{args.Exception?.StackTrace}\n\n";
+                File.AppendAllText(System.IO.Path.Combine(dir, "crash.log"), text);
+            }
+            catch { }
+        };
+
         InitializeComponent();
     }
 

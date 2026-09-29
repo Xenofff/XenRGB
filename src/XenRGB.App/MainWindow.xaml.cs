@@ -40,16 +40,28 @@ public sealed partial class MainWindow : Window
         catch { }
 
         // Setup system tray
-        _tray = new SystemTrayService(_hwnd);
-        _tray.OpenRequested += OnTrayOpenRequested;
-        _tray.ExitRequested += OnTrayExitRequested;
+        try
+        {
+            _tray = new SystemTrayService(_hwnd);
+            _tray.OpenRequested += OnTrayOpenRequested;
+            _tray.ExitRequested += OnTrayExitRequested;
+        }
+        catch { }
 
         // Subclass window procedure for Win32 tray messages and power broadcasts
-        _subclassDelegate = new SUBCLASSPROC(WindowSubclassProc);
-        SetWindowSubclass(_hwnd, _subclassDelegate, 1001, IntPtr.Zero);
+        try
+        {
+            _subclassDelegate = new SUBCLASSPROC(WindowSubclassProc);
+            SetWindowSubclass(_hwnd, _subclassDelegate, (UIntPtr)1001, IntPtr.Zero);
+        }
+        catch { }
 
         // Hook monitor power broadcast notifications
-        _coord.MonitorProvider.HookWindowHandle(_hwnd);
+        try
+        {
+            _coord.MonitorProvider.HookWindowHandle(_hwnd);
+        }
+        catch { }
 
         // Handle window close -> minimize to tray if configured
         appWindow.Closing += OnAppWindowClosing;
@@ -116,7 +128,7 @@ public sealed partial class MainWindow : Window
     private delegate IntPtr SUBCLASSPROC(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData);
 
     [DllImport("comctl32.dll", SetLastError = true)]
-    private static extern bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, uint uIdSubclass, IntPtr dwRefData);
+    private static extern bool SetWindowSubclass(IntPtr hWnd, SUBCLASSPROC pfnSubclass, UIntPtr uIdSubclass, IntPtr dwRefData);
 
     [DllImport("comctl32.dll")]
     private static extern IntPtr DefSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
