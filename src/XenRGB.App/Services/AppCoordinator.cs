@@ -110,12 +110,14 @@ public sealed class AppCoordinator : IDisposable
 
         Engine.MasterBrightness = profile.MasterBrightness;
 
-        // 5. Initialize device providers
-        WireProvider(MockProvider);
+        // 5. Initialize real hardware providers (MockProvider is excluded from production startup)
         WireProvider(OpenRgbProvider);
         WireProvider(WledProvider);
 
-        await MockProvider.InitializeAsync();
+        OpenRgbProvider.DevicesUpdated += (s, e) =>
+        {
+            SyncProviderDevices(OpenRgbProvider.Devices);
+        };
 
         if (ConfigService.Settings.AutoConnectOpenRgb)
         {
@@ -143,6 +145,41 @@ public sealed class AppCoordinator : IDisposable
 
         // 6. Start the engine loop
         Engine.Start();
+    }
+
+    /// <summary>
+    /// Explicitly enables simulated mock hardware devices for unit testing or offline UI development.
+    /// </summary>
+    public async Task EnableMockDevicesAsync()
+    {
+        WireProvider(MockProvider);
+        await MockProvider.InitializeAsync();
+    }
+
+    private void SyncProviderDevices(IReadOnlyList<IRgbDevice> providerDevices)
+    {
+        bool changed = false;
+        lock (AllDevices)
+        {
+            foreach (var dev in providerDevices)
+            {
+                var existing = AllDevices.FirstOrDefault(d => d.Id == dev.Id);
+                if (existing == null)
+                {
+                    AllDevices.Add(dev);
+                    Engine.RegisterDevice(dev);
+                    if (Canvas.GetPlacement(dev.Id) == null)
+                    {
+                        Canvas.AddOrUpdatePlacement(CreateDefaultPlacement(dev));
+                    }
+                    changed = true;
+                }
+            }
+        }
+        if (changed)
+        {
+            DevicesChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void WireProvider(IDeviceProvider provider)

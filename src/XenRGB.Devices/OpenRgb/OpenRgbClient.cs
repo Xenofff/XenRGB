@@ -15,10 +15,11 @@ public sealed class OpenRgbClient : IOpenRgbClient
     private const uint Magic = 0x4247524F; // "ORGB" in little-endian
     public const int DefaultPort = 6742;
 
-    public const uint CommandRequestProtocolVersion = 0;
-    public const uint CommandSetClientName = 1;
-    public const uint CommandRequestControllerCount = 100;
-    public const uint CommandRequestControllerData = 101;
+    public const uint CommandRequestControllerCount = 0;
+    public const uint CommandRequestControllerData = 1;
+    public const uint CommandRequestProtocolVersion = 40;
+    public const uint CommandSetClientName = 50;
+    public const uint CommandRequestRescanDevices = 140;
     public const uint CommandUpdateLeds = 1050;
 
     private TcpClient? _tcp;
@@ -27,7 +28,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
     private bool _isDisposed;
 
     public bool IsConnected => !_isDisposed && _tcp?.Connected == true;
-    public uint ServerProtocolVersion { get; private set; }
+    public uint ServerProtocolVersion { get; private set; } = 4;
 
     public async Task<bool> ConnectAsync(string host, int port, CancellationToken ct = default)
     {
@@ -56,13 +57,19 @@ public sealed class OpenRgbClient : IOpenRgbClient
             await _tcp.ConnectAsync(host, port, timeoutCts.Token).ConfigureAwait(false);
             _stream = _tcp.GetStream();
 
-            // 1. Negotiate protocol version (we request v4)
-            byte[] versionPayload = BitConverter.GetBytes((uint)4);
+            // 1. Negotiate protocol version (propose v4)
+            const uint proposedVersion = 4;
+            byte[] versionPayload = BitConverter.GetBytes(proposedVersion);
             await SendPacketInternalAsync(0, CommandRequestProtocolVersion, versionPayload, timeoutCts.Token).ConfigureAwait(false);
             var reply = await ReadPacketInternalAsync(timeoutCts.Token).ConfigureAwait(false);
             if (reply.Data.Length >= 4)
             {
-                ServerProtocolVersion = BitConverter.ToUInt32(reply.Data, 0);
+                uint serverVer = BitConverter.ToUInt32(reply.Data, 0);
+                ServerProtocolVersion = Math.Min(proposedVersion, serverVer);
+            }
+            else
+            {
+                ServerProtocolVersion = proposedVersion;
             }
 
             // 2. Set Client Name
@@ -131,6 +138,24 @@ public sealed class OpenRgbClient : IOpenRgbClient
             }
 
             await SendPacketInternalAsync(controllerIndex, CommandUpdateLeds, payload, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _networkLock.Release();
+        }
+    }
+
+    public async Task RequestRescanAsync(CancellationToken ct = default)
+    {
+        if (!IsConnected) return;
+        await _networkLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await SendPacketInternalAsync(0, CommandRequestRescanDevices, Array.Empty<byte>(), ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Rescan request may not be supported on older servers or may return without data
         }
         finally
         {

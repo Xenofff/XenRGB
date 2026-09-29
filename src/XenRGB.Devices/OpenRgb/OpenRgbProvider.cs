@@ -20,8 +20,8 @@ public sealed class OpenRgbProvider : IDeviceProvider
     private readonly object _devicesLock = new();
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private readonly CancellationTokenSource _loopCts = new();
-    private readonly string _host;
-    private readonly int _port;
+    private string _host;
+    private int _port;
     private readonly TimeSpan _reconnectInterval;
 
     private Task? _reconnectLoopTask;
@@ -32,9 +32,31 @@ public sealed class OpenRgbProvider : IDeviceProvider
     public string DisplayName => "OpenRGB";
     public bool IsConnected => _client.IsConnected;
     public TimeSpan ReconnectInterval => _reconnectInterval;
+    public string Host => _host;
+    public int Port => _port;
+    public string ConnectionStatusMessage { get; private set; } = "Disconnected (OpenRGB server not running)";
+    public string? LastError { get; private set; }
+
+    public IReadOnlyList<IRgbDevice> Devices
+    {
+        get
+        {
+            lock (_devicesLock)
+            {
+                return _devices.Cast<IRgbDevice>().ToList().AsReadOnly();
+            }
+        }
+    }
 
     public event EventHandler<DeviceEventArgs>? DeviceDiscovered;
     public event EventHandler<DeviceEventArgs>? DeviceRemoved;
+    public event EventHandler? DevicesUpdated;
+
+    public void UpdateEndpoint(string host, int port)
+    {
+        _host = host;
+        _port = port;
+    }
 
     public OpenRgbProvider(string host = "127.0.0.1", int port = 6742, TimeSpan reconnectInterval = default)
         : this(new OpenRgbClient(), host, port, reconnectInterval)
@@ -141,20 +163,32 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 if (!ok)
                 {
                     MarkDevicesDisconnected();
+                    LastError = $"Cannot connect to OpenRGB server at {_host}:{_port}. Please make sure OpenRGB is running with the SDK Server enabled (port {_port}).";
+                    ConnectionStatusMessage = $"Disconnected ({LastError})";
                     return false;
                 }
             }
 
-            return await DiscoverOrRefreshDevicesAsync(ct).ConfigureAwait(false);
+            bool discovered = await DiscoverOrRefreshDevicesAsync(ct).ConfigureAwait(false);
+            if (discovered)
+            {
+                LastError = null;
+                int count;
+                lock (_devicesLock) count = _devices.Count;
+                ConnectionStatusMessage = $"Connected to {_host}:{_port} (v{_client.ServerProtocolVersion}, {count} device(s))";
+            }
+            return discovered;
         }
         catch (OperationCanceledException)
         {
             return false;
         }
-        catch
+        catch (Exception ex)
         {
             _client.Disconnect();
             MarkDevicesDisconnected();
+            LastError = $"OpenRGB communication error: {ex.Message}";
+            ConnectionStatusMessage = $"Disconnected ({LastError})";
             return false;
         }
         finally
@@ -172,10 +206,34 @@ public sealed class OpenRgbProvider : IDeviceProvider
         }
     }
 
+    public async Task<IReadOnlyList<IRgbDevice>> RescanAndDiscoverAsync(CancellationToken ct = default)
+    {
+        if (_isDisposed) return Devices;
+
+        if (!_client.IsConnected)
+        {
+            await TryConnectAndDiscoverAsync(ct).ConfigureAwait(false);
+        }
+        else
+        {
+            try
+            {
+                await _client.RequestRescanAsync(ct).ConfigureAwait(false);
+                await Task.Delay(250, ct).ConfigureAwait(false);
+            }
+            catch { }
+
+            await TryConnectAndDiscoverAsync(ct).ConfigureAwait(false);
+        }
+
+        return Devices;
+    }
+
     private async Task<bool> DiscoverOrRefreshDevicesAsync(CancellationToken ct)
     {
         uint count = await _client.GetControllerCountAsync(ct).ConfigureAwait(false);
         var newlyDiscovered = new List<OpenRgbDevice>();
+        var updatedDevices = new List<OpenRgbDevice>();
 
         for (uint i = 0; i < count; i++)
         {
@@ -192,6 +250,7 @@ public sealed class OpenRgbProvider : IDeviceProvider
                     {
                         existing.ConnectionState = DeviceConnectionState.Connected;
                         existing.Throttler.Reset();
+                        updatedDevices.Add(existing);
                     }
                     else
                     {
@@ -212,6 +271,11 @@ public sealed class OpenRgbProvider : IDeviceProvider
             DeviceDiscovered?.Invoke(this, new DeviceEventArgs(dev));
         }
 
+        if (newlyDiscovered.Count > 0 || updatedDevices.Count > 0)
+        {
+            DevicesUpdated?.Invoke(this, EventArgs.Empty);
+        }
+
         return true;
     }
 
@@ -230,12 +294,22 @@ public sealed class OpenRgbProvider : IDeviceProvider
 
     private void MarkDevicesDisconnected()
     {
+        bool stateChanged = false;
         lock (_devicesLock)
         {
             foreach (var dev in _devices)
             {
-                dev.ConnectionState = DeviceConnectionState.Disconnected;
+                if (dev.ConnectionState != DeviceConnectionState.Disconnected)
+                {
+                    dev.ConnectionState = DeviceConnectionState.Disconnected;
+                    stateChanged = true;
+                }
             }
+        }
+
+        if (stateChanged)
+        {
+            DevicesUpdated?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -249,32 +323,46 @@ public sealed class OpenRgbProvider : IDeviceProvider
 
         try
         {
+            uint protocolVersion = _client.ServerProtocolVersion;
+
             _ = reader.ReadUInt32(); // total size
             int rawType = reader.ReadInt32();
             string name = ReadLengthPrefixedString(reader);
-            string vendor = ReadLengthPrefixedString(reader);
+            string vendor = protocolVersion >= 1 ? ReadLengthPrefixedString(reader) : string.Empty;
             string description = ReadLengthPrefixedString(reader);
             string version = ReadLengthPrefixedString(reader);
             string serial = ReadLengthPrefixedString(reader);
             string location = ReadLengthPrefixedString(reader);
 
-            // Skip modes
+            // Modes
             ushort modeCount = reader.ReadUInt16();
             int activeMode = reader.ReadInt32();
             for (int m = 0; m < modeCount; m++)
             {
                 ReadLengthPrefixedString(reader); // mode name
-                reader.ReadInt32(); // value
+                if (protocolVersion < 6) reader.ReadInt32(); // value
                 reader.ReadUInt32(); // flags
                 reader.ReadUInt32(); // speed_min
                 reader.ReadUInt32(); // speed_max
+                if (protocolVersion >= 3)
+                {
+                    reader.ReadUInt32(); // brightness_min
+                    reader.ReadUInt32(); // brightness_max
+                }
                 reader.ReadUInt32(); // colors_min
                 reader.ReadUInt32(); // colors_max
                 reader.ReadUInt32(); // speed
+                if (protocolVersion >= 3)
+                {
+                    reader.ReadUInt32(); // brightness
+                }
                 reader.ReadUInt32(); // direction
                 reader.ReadUInt32(); // color_mode
                 ushort numColors = reader.ReadUInt16();
-                reader.ReadBytes(numColors * 4); // colors
+                if (numColors > 0)
+                {
+                    reader.ReadBytes(numColors * 4); // colors
+                }
             }
 
             // Zones
@@ -283,7 +371,7 @@ public sealed class OpenRgbProvider : IDeviceProvider
             for (int z = 0; z < zoneCount; z++)
             {
                 ReadLengthPrefixedString(reader); // zone name
-                int zType = reader.ReadInt32(); // zone type (0 = single, 1 = linear, 2 = matrix)
+                int zType = reader.ReadInt32(); // zone type
                 uint zLedsMin = reader.ReadUInt32();
                 uint zLedsMax = reader.ReadUInt32();
                 uint zLedsCount = reader.ReadUInt32();
@@ -294,6 +382,29 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 {
                     reader.ReadBytes(matrixLen);
                 }
+
+                if (protocolVersion >= 4)
+                {
+                    ushort numSegments = reader.ReadUInt16();
+                    for (int s = 0; s < numSegments; s++)
+                    {
+                        ReadLengthPrefixedString(reader); // segment name
+                        reader.ReadInt32(); // segment type
+                        reader.ReadUInt32(); // start_idx
+                        reader.ReadUInt32(); // leds_count
+                        if (protocolVersion >= 6)
+                        {
+                            ushort segMatLen = reader.ReadUInt16();
+                            if (segMatLen > 0) reader.ReadBytes(segMatLen);
+                            reader.ReadUInt32(); // flags
+                        }
+                    }
+                }
+
+                if (protocolVersion >= 5)
+                {
+                    reader.ReadUInt32(); // zone flags
+                }
             }
 
             // LEDs
@@ -303,7 +414,10 @@ public sealed class OpenRgbProvider : IDeviceProvider
             for (int l = 0; l < ledCount; l++)
             {
                 string ledName = ReadLengthPrefixedString(reader);
-                reader.ReadUInt32(); // value
+                if (protocolVersion < 6)
+                {
+                    reader.ReadUInt32(); // value
+                }
 
                 // Calculate normalized coordinate
                 float localX = ledCount > 1 ? (float)l / (ledCount - 1) : 0.5f;

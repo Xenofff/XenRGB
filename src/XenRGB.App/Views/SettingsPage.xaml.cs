@@ -38,10 +38,12 @@ public sealed partial class SettingsPage : Page
     {
         if (int.TryParse(OpenRgbPortBox.Text, out int port))
         {
-            _coord.ConfigService.Settings.OpenRgbHost = OpenRgbHostBox.Text.Trim();
+            string host = OpenRgbHostBox.Text.Trim();
+            _coord.ConfigService.Settings.OpenRgbHost = host;
             _coord.ConfigService.Settings.OpenRgbPort = port;
             await _coord.ConfigService.SaveAsync();
 
+            _coord.OpenRgbProvider.UpdateEndpoint(host, port);
             await _coord.OpenRgbProvider.DiscoverDevicesAsync();
         }
     }

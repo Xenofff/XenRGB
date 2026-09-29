@@ -25,7 +25,7 @@
                     Padding="24">
                 <StackPanel Spacing="16">
                     <TextBlock Text="OpenRGB Hardware Backend" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
-                    <TextBlock Text="XenRGB connects to OpenRGB's native network SDK to communicate with motherboards, RAM, GPUs, and peripherals without proprietary vendor bloat."
+                    <TextBlock Text="XenRGB connects to OpenRGB's native network SDK to communicate with motherboards, RAM, GPUs, and peripherals without proprietary vendor bloat. Requires OpenRGB running with the SDK Server enabled (default port 6742)."
                                Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                     <Grid ColumnSpacing="16">

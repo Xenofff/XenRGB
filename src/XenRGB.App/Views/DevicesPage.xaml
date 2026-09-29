@@ -20,9 +20,41 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" VerticalAlignment="Center">
                     <Button Content="+ Add WLED Device" Click="AddWledButton_Click" Style="{ThemeResource AccentButtonStyle}" />
-                    <Button Content="Scan Devices" Click="ScanDevicesButton_Click" />
+                    <Button x:Name="ScanDevicesButton" Click="ScanDevicesButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ProgressRing x:Name="ScanProgressRing" Width="16" Height="16" IsActive="False" Visibility="Collapsed" />
+                            <TextBlock x:Name="ScanButtonText" Text="Scan Devices" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
+
+            <!-- Backend Status InfoBar -->
+            <InfoBar x:Name="BackendStatusInfoBar"
+                     IsOpen="True"
+                     IsClosable="False"
+                     Margin="0,0,0,4" />
+
+            <!-- Empty State View -->
+            <Border x:Name="EmptyStateCard"
+                    Visibility="Collapsed"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="36"
+                    HorizontalAlignment="Stretch">
+                <StackPanel HorizontalAlignment="Center" Spacing="12">
+                    <FontIcon Glyph="&#xE7F4;" FontSize="40" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="No RGB Devices Detected" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="XenRGB connects to the local OpenRGB SDK server to discover and control real hardware (keyboards, mice, RAM, motherboards, GPUs).&#x0a;&#x0a;To detect your hardware:&#x0a;1. Launch OpenRGB and start the SDK Server (Settings -> OpenRGB Server -> Start Server).&#x0a;2. Click 'Scan Devices' above to discover your devices.&#x0a;&#x0a;You can also click '+ Add WLED Device' to connect Wi-Fi light strips."
+                               Style="{ThemeResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               MaxWidth="620" />
+                </StackPanel>
+            </Border>
 
             <!-- Discovered Devices List -->
             <ItemsControl x:Name="DevicesList">

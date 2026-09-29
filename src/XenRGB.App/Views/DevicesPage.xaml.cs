@@ -37,6 +37,37 @@ public sealed partial class DevicesPage : Page
         {
             DeviceViewModels.Add(new DeviceViewModel(dev));
         }
+
+        EmptyStateCard.Visibility = DeviceViewModels.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        DevicesList.Visibility = DeviceViewModels.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateStatusBanner();
+    }
+
+    private void UpdateStatusBanner()
+    {
+        var openRgb = _coord.OpenRgbProvider;
+        if (openRgb.IsConnected)
+        {
+            int devCount = openRgb.Devices.Count;
+            if (devCount > 0)
+            {
+                BackendStatusInfoBar.Severity = InfoBarSeverity.Success;
+                BackendStatusInfoBar.Title = "OpenRGB Connected";
+                BackendStatusInfoBar.Message = $"Connected to OpenRGB server at {openRgb.Host}:{openRgb.Port}. {devCount} device(s) active.";
+            }
+            else
+            {
+                BackendStatusInfoBar.Severity = InfoBarSeverity.Informational;
+                BackendStatusInfoBar.Title = "OpenRGB Connected (No Devices Found)";
+                BackendStatusInfoBar.Message = $"Connected to OpenRGB server at {openRgb.Host}:{openRgb.Port}, but OpenRGB reported 0 supported devices. Make sure your devices appear inside the OpenRGB desktop application.";
+            }
+        }
+        else
+        {
+            BackendStatusInfoBar.Severity = InfoBarSeverity.Warning;
+            BackendStatusInfoBar.Title = "OpenRGB Server Offline";
+            BackendStatusInfoBar.Message = $"OpenRGB server is not running at {openRgb.Host}:{openRgb.Port}. Launch OpenRGB and start the SDK Server (Settings -> OpenRGB Server -> Start Server), then click 'Scan Devices'.";
+        }
     }
 
     private async void AddWledButton_Click(object sender, RoutedEventArgs e)
@@ -64,9 +95,24 @@ public sealed partial class DevicesPage : Page
 
     private async void ScanDevicesButton_Click(object sender, RoutedEventArgs e)
     {
-        await _coord.OpenRgbProvider.DiscoverDevicesAsync();
-        await _coord.WledProvider.DiscoverDevicesAsync();
-        RefreshDevices();
+        ScanDevicesButton.IsEnabled = false;
+        ScanButtonText.Text = "Scanning...";
+        ScanProgressRing.IsActive = true;
+        ScanProgressRing.Visibility = Visibility.Visible;
+
+        try
+        {
+            await _coord.OpenRgbProvider.RescanAndDiscoverAsync();
+            await _coord.WledProvider.DiscoverDevicesAsync();
+            RefreshDevices();
+        }
+        finally
+        {
+            ScanProgressRing.IsActive = false;
+            ScanProgressRing.Visibility = Visibility.Collapsed;
+            ScanButtonText.Text = "Scan Devices";
+            ScanDevicesButton.IsEnabled = true;
+        }
     }
 }
 
