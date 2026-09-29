@@ -126,9 +126,9 @@ public sealed class AutomationManager : IDisposable
                                 }
                             }
                         }
-                        catch (OperationCanceledException)
+                        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
                         {
-                            // Delay was cancelled
+                            // Delay was cancelled or token disposed
                         }
                     }, token);
                 }

@@ -18,6 +18,8 @@ public sealed class RgbEngine : IDisposable
 {
     private readonly SpatialCanvas _canvas;
     private readonly List<IRgbDevice> _devices = new();
+    private IRgbDevice[] _deviceSnapshot = Array.Empty<IRgbDevice>();
+    private readonly Dictionary<string, RgbColor[]> _deviceBuffers = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _lock = new();
 
     private IEffect? _activeEffect;
@@ -86,6 +88,7 @@ public sealed class RgbEngine : IDisposable
             if (!_devices.Contains(device))
             {
                 _devices.Add(device);
+                _deviceSnapshot = _devices.ToArray();
             }
         }
     }
@@ -95,6 +98,8 @@ public sealed class RgbEngine : IDisposable
         lock (_lock)
         {
             _devices.RemoveAll(d => d.Id == deviceId);
+            _deviceBuffers.Remove(deviceId);
+            _deviceSnapshot = _devices.ToArray();
         }
     }
 
@@ -205,25 +210,26 @@ public sealed class RgbEngine : IDisposable
     private void RenderFrame(EffectContext context)
     {
         IEffect? effect;
-        List<IRgbDevice> devices;
+        IRgbDevice[] devices;
         float masterBrightness;
 
         lock (_lock)
         {
             effect = _activeEffect;
-            devices = _devices.ToList();
+            devices = _deviceSnapshot;
             masterBrightness = _masterBrightness;
         }
 
-        if (effect == null || devices.Count == 0 || masterBrightness <= 0.001f)
+        if (effect == null || devices.Length == 0 || masterBrightness <= 0.001f)
             return;
 
         // Update effect animation state once per frame
         effect.Update(context);
 
         // Render each device
-        foreach (var device in devices)
+        for (int d = 0; d < devices.Length; d++)
         {
+            var device = devices[d];
             if (!device.IsEnabled || device.ConnectionState != DeviceConnectionState.Connected)
                 continue;
 
@@ -232,7 +238,14 @@ public sealed class RgbEngine : IDisposable
                 continue;
 
             int count = Math.Min(device.LedCount, mappedLeds.Length);
-            var colors = new RgbColor[count];
+
+            // Reusable per-device buffer
+            if (!_deviceBuffers.TryGetValue(device.Id, out var colors) || colors.Length < count)
+            {
+                colors = new RgbColor[Math.Max(count, device.LedCount)];
+                _deviceBuffers[device.Id] = colors;
+            }
+
             float deviceBrightness = device.Brightness * masterBrightness;
 
             for (int i = 0; i < count; i++)
@@ -245,8 +258,8 @@ public sealed class RgbEngine : IDisposable
                     : rawColor;
             }
 
-            // Push frame to device asynchronously
-            _ = device.UpdateLedsAsync(colors);
+            // Push frame to device asynchronously using struct ReadOnlyMemory slice
+            _ = device.UpdateLedsAsync(new ReadOnlyMemory<RgbColor>(colors, 0, count));
         }
     }
 

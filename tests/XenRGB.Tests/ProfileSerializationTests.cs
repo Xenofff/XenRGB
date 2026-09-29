@@ -55,4 +55,32 @@ public class ProfileSerializationTests
             }
         }
     }
+
+    [Fact]
+    public async Task JsonConfigurationService_CorruptedJson_RecoversWithDefaults()
+    {
+        string tempFile = Path.Combine(Path.GetTempPath(), $"xenrgb_corrupt_test_{System.Guid.NewGuid():N}.json");
+
+        try
+        {
+            // Write malformed/corrupted JSON
+            await File.WriteAllTextAsync(tempFile, "{ this is not valid json : [ }");
+
+            var service = new JsonConfigurationService(tempFile);
+            // Should not throw, and should recover default configuration
+            await service.LoadAsync();
+
+            Assert.NotNull(service.Settings);
+            Assert.NotEmpty(service.Settings.Profiles);
+            Assert.NotNull(service.ActiveProfile);
+            Assert.Equal("default-profile", service.ActiveProfile.Id);
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+            {
+                File.Delete(tempFile);
+            }
+        }
+    }
 }

@@ -110,7 +110,13 @@ public sealed class WledDevice : IRgbDevice
         await _sendLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            byte[] packet = new byte[2 + count * 3];
+            int requiredLength = 2 + count * 3;
+            byte[] packet = _udpBuffer;
+            if (packet.Length < requiredLength)
+            {
+                packet = new byte[requiredLength];
+            }
+
             packet[0] = 2; // DRGB mode
             packet[1] = 2; // Timeout: 2 seconds
 
@@ -122,7 +128,7 @@ public sealed class WledDevice : IRgbDevice
                 packet[2 + i * 3 + 2] = c.B;
             }
 
-            await _udp.SendAsync(packet, packet.Length, IpAddress, WledUdpPort).ConfigureAwait(false);
+            await _udp.SendAsync(packet.AsMemory(0, requiredLength), IpAddress, WledUdpPort).ConfigureAwait(false);
         }
         catch
         {

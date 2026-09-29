@@ -35,9 +35,11 @@ public sealed class OpenRgbClient : IDisposable
         {
             DisconnectInternal();
             _tcp = new TcpClient();
-            using var reg = ct.Register(() => _tcp.Close());
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(3));
+            using var reg = timeoutCts.Token.Register(() => _tcp?.Close());
 
-            await _tcp.ConnectAsync(host, port).ConfigureAwait(false);
+            await _tcp.ConnectAsync(host, port, timeoutCts.Token).ConfigureAwait(false);
             _stream = _tcp.GetStream();
 
             // 1. Negotiate protocol version (we request v4)

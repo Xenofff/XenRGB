@@ -55,4 +55,30 @@ public class DeviceProviderTests
 
         Assert.Equal(RgbColor.Black, keyboard.CurrentColors[0]);
     }
+
+    [Fact]
+    public async Task OpenRgbProvider_UnreachableHost_FailsGracefullyWithoutThrowing()
+    {
+        // Port 59999 should not have OpenRGB running
+        using var provider = new XenRGB.Devices.OpenRgb.OpenRgbProvider("127.0.0.1", 59999);
+        
+        // DiscoverDevicesAsync should handle socket exception gracefully and return empty list
+        var devices = await provider.DiscoverDevicesAsync();
+
+        Assert.Empty(devices);
+        Assert.False(provider.IsConnected);
+    }
+
+    [Fact]
+    public void MockRgbDevice_ToggleEnable_PreservesState()
+    {
+        var leds = new LedCoordinate[] { new(0, 0.5f, 0.5f, "LED1") };
+        var device = new MockRgbDevice("test-dev", "Test Device", RgbDeviceType.LedStrip, leds);
+
+        Assert.True(device.IsEnabled);
+        device.IsEnabled = false;
+        Assert.False(device.IsEnabled);
+        device.IsEnabled = true;
+        Assert.True(device.IsEnabled);
+    }
 }

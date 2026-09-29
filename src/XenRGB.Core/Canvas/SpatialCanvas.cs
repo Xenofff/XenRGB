@@ -69,7 +69,7 @@ public sealed class SpatialCanvas
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        if (_cache.TryGetValue(device.Id, out var cached))
+        if (_cache.TryGetValue(device.Id, out var cached) && cached.Length == device.LedCoordinates.Count)
             return cached;
 
         if (!_placements.TryGetValue(device.Id, out var placement) || !placement.IsEnabled)

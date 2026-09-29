@@ -1,10 +1,10 @@
 {
   "profiles": {
-    "XenRGB.App (Package)": {
-      "commandName": "MsixPackage"
-    },
     "XenRGB.App (Unpackaged)": {
       "commandName": "Project"
+    },
+    "XenRGB.App (Package)": {
+      "commandName": "MsixPackage"
     }
   }
 }

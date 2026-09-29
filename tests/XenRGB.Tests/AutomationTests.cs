@@ -90,4 +90,33 @@ public class AutomationTests
         Assert.True(manager.IsLightingActive);
         Assert.False(manager.IsMonitorOff);
     }
+
+    [Fact]
+    public async Task MonitorState_QuickWakeBeforeDelay_PreventsShutoff()
+    {
+        var monitor = new TestMonitorProvider();
+        var inactivity = new TestInactivityProvider();
+        var config = new AutomationConfig
+        {
+            TurnOffOnMonitorOff = true,
+            RestoreOnMonitorOn = true,
+            MonitorOffDelaySeconds = 1 // 1 second delay
+        };
+        using var manager = new AutomationManager(monitor, inactivity, config);
+
+        Assert.True(manager.IsLightingActive);
+
+        // Turn monitor off
+        monitor.TriggerStateChange(false);
+        // Immediately turn monitor back on (within 100ms)
+        await System.Threading.Tasks.Task.Delay(100);
+        monitor.TriggerStateChange(true);
+
+        // Wait past original 1s delay
+        await System.Threading.Tasks.Task.Delay(1100);
+
+        // Lighting should still be active because delay was cancelled
+        Assert.True(manager.IsLightingActive);
+        Assert.False(manager.IsMonitorOff);
+    }
 }

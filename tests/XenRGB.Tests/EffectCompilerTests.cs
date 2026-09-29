@@ -55,4 +55,21 @@ public class IncompleteEffect : {
         Assert.NotNull(error);
         Assert.Contains("Line", error);
     }
+
+    [Fact]
+    public void CompileEffectSource_ClassWithoutIEffect_ReturnsError()
+    {
+        string source = @"
+public class JustAHelperClass
+{
+    public int Calculate() => 42;
+}
+";
+
+        var (effect, error) = EffectCompiler.CompileEffectSource(source);
+
+        Assert.Null(effect);
+        Assert.NotNull(error);
+        Assert.Contains("No class implementing IEffect", error);
+    }
 }
