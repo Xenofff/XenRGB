@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -276,7 +276,7 @@ public class OpenRgbAutoReconnectTests
 
         var device = await discoveredTcs.Task;
         Assert.NotNull(device);
-        Assert.Equal("openrgb-0-test-keyboard", device.Id);
+        Assert.Equal("openrgb-test-keyboard-12345", device.Id);
         Assert.Single(provider.Devices);
         Assert.Contains("1 device(s)", provider.ConnectionStatusMessage);
     }
@@ -290,7 +290,7 @@ public class OpenRgbAutoReconnectTests
         var device = new OpenRgbDevice(
             client,
             0,
-            "openrgb-0-hyperx",
+            "openrgb-hyperx-12345",
             "HyperX Alloy Origins Core",
             RgbDeviceType.Keyboard,
             new LedCoordinate[] { new(0, 0.5f, 0.5f, "LED1") });

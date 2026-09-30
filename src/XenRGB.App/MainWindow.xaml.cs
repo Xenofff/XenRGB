@@ -110,10 +110,22 @@ public sealed partial class MainWindow : Window
     private IntPtr WindowSubclassProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam, UIntPtr uIdSubclass, IntPtr dwRefData)
     {
         const uint WM_POWERBROADCAST = 0x0218;
+        const uint WM_GETMINMAXINFO = 0x0024;
 
         if (uMsg == SystemTrayService.WM_TRAYICON)
         {
             _tray?.ProcessWindowMessage((int)uMsg, wParam, lParam);
+            return IntPtr.Zero;
+        }
+
+        if (uMsg == WM_GETMINMAXINFO)
+        {
+            var minMaxInfo = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+            uint dpi = GetDpiForWindow(hWnd);
+            float scale = (dpi == 0 ? 96f : dpi) / 96f;
+            minMaxInfo.ptMinTrackSize.X = (int)(1000 * scale);
+            minMaxInfo.ptMinTrackSize.Y = (int)(700 * scale);
+            Marshal.StructureToPtr(minMaxInfo, lParam, false);
             return IntPtr.Zero;
         }
 
@@ -135,4 +147,17 @@ public sealed partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MINMAXINFO
+    {
+        public System.Drawing.Point ptReserved;
+        public System.Drawing.Point ptMaxSize;
+        public System.Drawing.Point ptMaxPosition;
+        public System.Drawing.Point ptMinTrackSize;
+        public System.Drawing.Point ptMaxTrackSize;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hwnd);
 }

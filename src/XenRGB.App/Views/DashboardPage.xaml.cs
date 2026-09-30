@@ -70,7 +70,10 @@ public sealed partial class DashboardPage : Page
 
     private void OnCanvasChanged(object? sender, EventArgs e)
     {
-        DispatcherQueue.TryEnqueue(RebuildCanvasVisuals);
+        if (!_isDragging)
+        {
+            DispatcherQueue.TryEnqueue(RebuildCanvasVisuals);
+        }
     }
 
     private void UpdateStatusUi()
@@ -108,7 +111,7 @@ public sealed partial class DashboardPage : Page
         foreach (var placement in _coord.Canvas.Placements)
         {
             var device = _coord.AllDevices.FirstOrDefault(d => d.Id == placement.DeviceId);
-            if (device == null && !placement.DeviceId.StartsWith("mock-"))
+            if (device == null)
                 continue;
 
             double w = placement.Width * canvasWidth;
@@ -247,6 +250,16 @@ public sealed partial class DashboardPage : Page
 
         _selectedPlacement.X = Math.Clamp(_origPlacementX + normDx, 0.05f, 0.95f);
         _selectedPlacement.Y = Math.Clamp(_origPlacementY + normDy, 0.05f, 0.95f);
+
+        if (_deviceVisuals.TryGetValue(_selectedPlacement.DeviceId, out var visuals))
+        {
+            double w = _selectedPlacement.Width * canvasWidth;
+            double h = _selectedPlacement.Height * canvasHeight;
+            double x = (_selectedPlacement.X * canvasWidth) - (w / 2.0);
+            double y = (_selectedPlacement.Y * canvasHeight) - (h / 2.0);
+            Canvas.SetLeft(visuals.Container, Math.Clamp(x, 0, canvasWidth - w));
+            Canvas.SetTop(visuals.Container, Math.Clamp(y, 0, canvasHeight - h));
+        }
 
         _coord.Canvas.AddOrUpdatePlacement(_selectedPlacement);
         UpdateInspectorValues();

@@ -534,7 +534,16 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 ledCoordinates.Add(new LedCoordinate(0, 0.5f, 0.5f, "Main LED"));
             }
 
-            string devId = $"openrgb-{index}-{name.ToLowerInvariant().Replace(' ', '-')}";
+            string safeName = name.ToLowerInvariant().Replace(' ', '-');
+            string stableStr = !string.IsNullOrWhiteSpace(serial) ? serial : (!string.IsNullOrWhiteSpace(location) ? location : safeName);
+            
+            var sb = new StringBuilder();
+            foreach (char c in stableStr)
+            {
+                if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
+                else if (c == ' ' || c == '-' || c == '_') sb.Append('-');
+            }
+            string devId = $"openrgb-{safeName}-{sb.ToString().Trim('-')}";
             string displayName = string.IsNullOrWhiteSpace(vendor) ? name : $"{vendor} {name}";
 
             return new OpenRgbDevice(_client, index, devId, displayName, deviceType, ledCoordinates);

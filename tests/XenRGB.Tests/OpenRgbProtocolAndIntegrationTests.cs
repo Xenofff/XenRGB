@@ -16,7 +16,7 @@ namespace XenRGB.Tests;
 
 public class OpenRgbProtocolAndIntegrationTests
 {
-    private sealed class ProtocolMockClient : IOpenRgbClient
+    internal sealed class ProtocolMockClient : IOpenRgbClient
     {
         public bool IsConnected { get; set; } = true;
         public uint ServerProtocolVersion { get; set; } = 4;
