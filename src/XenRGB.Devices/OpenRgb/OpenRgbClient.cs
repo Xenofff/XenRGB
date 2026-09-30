@@ -53,6 +53,11 @@ public sealed class OpenRgbClient : IOpenRgbClient
     private readonly SemaphoreSlim _networkLock = new(1, 1);
     private bool _isDisposed;
 
+    // Maximum time to wait for the network lock before giving up.
+    private static readonly TimeSpan _lockTimeout = TimeSpan.FromSeconds(8);
+    // Maximum time for a single TCP read/write operation.
+    private static readonly TimeSpan _ioTimeout = TimeSpan.FromSeconds(5);
+
     // v6 unique controller IDs received in the controller-count response.
     private uint[]? _controllerUniqueIds;
 
@@ -120,12 +125,14 @@ public sealed class OpenRgbClient : IOpenRgbClient
 
     public async Task<uint> GetControllerCountAsync(CancellationToken ct = default)
     {
-        await _networkLock.WaitAsync(ct).ConfigureAwait(false);
+        if (!await TryAcquireNetworkLockAsync(ct).ConfigureAwait(false))
+            throw new TimeoutException("OpenRGB: timed out waiting for network lock in GetControllerCountAsync.");
         try
         {
-            await SendRawAsync(0, CommandRequestControllerCount, Array.Empty<byte>(), ct).ConfigureAwait(false);
+            using var ioCts = MakeIoCts(ct);
+            await SendRawAsync(0, CommandRequestControllerCount, Array.Empty<byte>(), ioCts.Token).ConfigureAwait(false);
             // ReadExpectedAsync skips any residual push packets (up to 512).
-            var reply = await ReadExpectedAsync(CommandRequestControllerCount, ct).ConfigureAwait(false);
+            var reply = await ReadExpectedAsync(CommandRequestControllerCount, ioCts.Token).ConfigureAwait(false);
 
             if (reply.Data.Length < 4) return 0;
             uint count = BitConverter.ToUInt32(reply.Data, 0);
@@ -151,13 +158,15 @@ public sealed class OpenRgbClient : IOpenRgbClient
 
     public async Task<byte[]> GetControllerDataRawAsync(uint controllerIndex, CancellationToken ct = default)
     {
-        await _networkLock.WaitAsync(ct).ConfigureAwait(false);
+        if (!await TryAcquireNetworkLockAsync(ct).ConfigureAwait(false))
+            throw new TimeoutException("OpenRGB: timed out waiting for network lock in GetControllerDataRawAsync.");
         try
         {
+            using var ioCts = MakeIoCts(ct);
             uint devId = GetDeviceId(controllerIndex);
             await SendRawAsync(devId, CommandRequestControllerData,
-                BitConverter.GetBytes(ServerProtocolVersion), ct).ConfigureAwait(false);
-            var reply = await ReadExpectedAsync(CommandRequestControllerData, ct).ConfigureAwait(false);
+                BitConverter.GetBytes(ServerProtocolVersion), ioCts.Token).ConfigureAwait(false);
+            var reply = await ReadExpectedAsync(CommandRequestControllerData, ioCts.Token).ConfigureAwait(false);
             return reply.Data;
         }
         finally { _networkLock.Release(); }
@@ -176,9 +185,12 @@ public sealed class OpenRgbClient : IOpenRgbClient
     /// </summary>
     public async Task SendUpdateLedsAsync(uint controllerIndex, ReadOnlyMemory<uint> bgrColors, CancellationToken ct = default)
     {
-        await _networkLock.WaitAsync(ct).ConfigureAwait(false);
+        // Use a short lock-acquisition timeout so a stuck sender never blocks the engine loop.
+        if (!await TryAcquireNetworkLockAsync(ct).ConfigureAwait(false))
+            return; // Drop frame rather than stall
         try
         {
+            using var ioCts = MakeIoCts(ct);
             uint devId     = GetDeviceId(controllerIndex);
             int colorCount = bgrColors.Length;
             // Payload layout: data_size(4) + num_leds(2) + colors(4*N)
@@ -189,11 +201,24 @@ public sealed class OpenRgbClient : IOpenRgbClient
             for (int i = 0; i < colorCount; i++)
                 BitConverter.TryWriteBytes(payload.AsSpan(6 + i * 4, 4), bgrColors.Span[i]);
 
-            await SendRawAsync(devId, CommandUpdateLeds, payload, ct).ConfigureAwait(false);
+            await SendRawAsync(devId, CommandUpdateLeds, payload, ioCts.Token).ConfigureAwait(false);
 
-            // Zero-wait drain of all available ACKs (v6 only).
+            // Best-effort drain of v6 ACKs. Use a short separate timeout (200ms) so that
+            // a slow/partial ACK packet never propagates as a send error.
+            // Un-drained ACKs are tolerated by ReadExpectedAsync's skip loop.
             if (ServerProtocolVersion >= 6)
-                await DrainAllAvailableAsync(ct).ConfigureAwait(false);
+            {
+                try
+                {
+                    using var drainCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    drainCts.CancelAfter(TimeSpan.FromMilliseconds(200));
+                    await DrainAllAvailableAsync(drainCts.Token).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Drain is best-effort; never fail the send because of it.
+                }
+            }
         }
         finally { _networkLock.Release(); }
     }
@@ -201,11 +226,12 @@ public sealed class OpenRgbClient : IOpenRgbClient
     public async Task RequestRescanAsync(CancellationToken ct = default)
     {
         if (!IsConnected) return;
-        await _networkLock.WaitAsync(ct).ConfigureAwait(false);
+        if (!await TryAcquireNetworkLockAsync(ct).ConfigureAwait(false)) return;
         try
         {
-            await SendRawAsync(0, CommandRequestRescanDevices, Array.Empty<byte>(), ct).ConfigureAwait(false);
-            await DrainAllAvailableAsync(ct).ConfigureAwait(false);
+            using var ioCts = MakeIoCts(ct);
+            await SendRawAsync(0, CommandRequestRescanDevices, Array.Empty<byte>(), ioCts.Token).ConfigureAwait(false);
+            await DrainAllAvailableAsync(ioCts.Token).ConfigureAwait(false);
         }
         catch { /* server may not support rescan */ }
         finally { _networkLock.Release(); }
@@ -324,6 +350,37 @@ public sealed class OpenRgbClient : IOpenRgbClient
             if (n == 0) throw new EndOfStreamException();
             read += n;
         }
+    }
+
+    /// <summary>
+    /// Tries to acquire the network lock within <see cref="_lockTimeout"/>.
+    /// Returns false if the lock cannot be obtained in time (prevents indefinite blocking).
+    /// </summary>
+    private async Task<bool> TryAcquireNetworkLockAsync(CancellationToken ct)
+    {
+        if (_isDisposed) return false;
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(_lockTimeout);
+            await _networkLock.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Creates a CancellationTokenSource linked to <paramref name="ct"/> that also fires
+    /// after <see cref="_ioTimeout"/> so that no individual TCP read/write can block forever.
+    /// </summary>
+    private static CancellationTokenSource MakeIoCts(CancellationToken ct)
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(_ioTimeout);
+        return cts;
     }
 
     public void Disconnect() => DisconnectInternal();

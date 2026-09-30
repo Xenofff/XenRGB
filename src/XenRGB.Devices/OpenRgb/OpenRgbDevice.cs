@@ -86,8 +86,15 @@ public sealed class OpenRgbDevice : IRgbDevice
             await _client.SendUpdateLedsAsync(ControllerIndex, _bgrBuffer.AsMemory(0, count), ct).ConfigureAwait(false);
             TransmissionCount++;
         }
+        catch (OperationCanceledException)
+        {
+            // IO timeout or external cancellation — do not mark the device as Error;
+            // just reset the throttler so the next frame is transmitted fresh.
+            _throttler.Reset();
+        }
         catch
         {
+            // Real network failure: mark Error so the reconnect loop picks it up.
             ConnectionState = DeviceConnectionState.Error;
             _throttler.Reset();
         }
