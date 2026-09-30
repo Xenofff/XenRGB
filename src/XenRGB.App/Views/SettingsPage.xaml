@@ -12,8 +12,8 @@
             
             <!-- Page Header -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
-                <TextBlock Text="Hardware backends, application preferences, and system tray integration."
+                <TextBlock x:Uid="SettingsPageTitle" Text="Settings" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
+                <TextBlock x:Uid="SettingsPageDescription" Text="Hardware backends, application preferences, and system tray integration."
                            Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
 
@@ -24,8 +24,8 @@
                     CornerRadius="12"
                     Padding="24">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="OpenRGB Hardware Backend" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
-                    <TextBlock Text="XenRGB connects to OpenRGB's native network SDK to communicate with motherboards, RAM, GPUs, and peripherals without proprietary vendor bloat. Requires OpenRGB running with the SDK Server enabled (default port 6742)."
+                    <TextBlock x:Uid="OpenRgbBackendTitle" Text="OpenRGB Hardware Backend" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <TextBlock x:Uid="OpenRgbBackendDescription" Text="XenRGB connects to OpenRGB's native network SDK to communicate with motherboards, RAM, GPUs, and peripherals without proprietary vendor bloat. Requires OpenRGB running with the SDK Server enabled (default port 6742)."
                                Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                     <Grid ColumnSpacing="16">
@@ -36,8 +36,8 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBox x:Name="OpenRgbHostBox" Header="Server Host / IP" PlaceholderText="127.0.0.1" />
-                        <TextBox Grid.Column="1" x:Name="OpenRgbPortBox" Header="Port" PlaceholderText="6742" />
-                        <Button Grid.Column="2" Content="Connect" Click="ConnectOpenRgb_Click" VerticalAlignment="Bottom" Style="{ThemeResource AccentButtonStyle}" />
+                        <TextBox Grid.Column="1" x:Name="OpenRgbPortBox" Header="Port" PlaceholderText="6742" x:Uid="OpenRgbPortHeader" />
+                        <Button Grid.Column="2" x:Uid="ConnectButton" Content="Connect" Click="ConnectOpenRgb_Click" VerticalAlignment="Bottom" Style="{ThemeResource AccentButtonStyle}" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -49,18 +49,41 @@
                     CornerRadius="12"
                     Padding="24">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Engine Performance" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <TextBlock x:Uid="EnginePerformanceTitle" Text="Engine Performance" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
                     
                     <Grid>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock Text="Target Animation Frame Rate" FontWeight="Medium" />
-                            <TextBlock Text="Controls how frequently RGB frames are computed and transmitted to hardware."
+                            <TextBlock x:Uid="TargetFpsTitle" Text="Target Animation Frame Rate" FontWeight="Medium" />
+                            <TextBlock x:Uid="TargetFpsDescription" Text="Controls how frequently RGB frames are computed and transmitted to hardware."
                                        Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                         <ComboBox x:Name="FpsComboBox" HorizontalAlignment="Right" SelectionChanged="FpsComboBox_SelectionChanged">
-                            <ComboBoxItem Content="15 FPS (Ultra-low CPU)" />
-                            <ComboBoxItem Content="30 FPS (Standard - Recommended)" />
-                            <ComboBoxItem Content="60 FPS (Maximum Smoothness)" />
+                            <ComboBoxItem x:Uid="Fps15" Content="15 FPS (Ultra-low CPU)" />
+                            <ComboBoxItem x:Uid="Fps30" Content="30 FPS (Standard - Recommended)" />
+                            <ComboBoxItem x:Uid="Fps60" Content="60 FPS (Maximum Smoothness)" />
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Language / General Settings -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24">
+                <StackPanel Spacing="16">
+                    <TextBlock x:Uid="LanguageSettingsTitle" Text="Language (Requires Restart)" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                    
+                    <Grid>
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Uid="DisplayLanguageHeader" Text="Display Language" FontWeight="Medium" />
+                            <TextBlock x:Uid="DisplayLanguageDescription" Text="Select the interface language. A restart of the application is required to fully apply changes."
+                                       Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ComboBox x:Name="LanguageComboBox" HorizontalAlignment="Right" SelectionChanged="LanguageComboBox_SelectionChanged">
+                            <ComboBoxItem Content="English" Tag="en-US" />
+                            <ComboBoxItem Content="Русский" Tag="ru-RU" />
                         </ComboBox>
                     </Grid>
                 </StackPanel>
@@ -73,12 +96,12 @@
                     CornerRadius="12"
                     Padding="24">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="System Tray" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <TextBlock x:Uid="SystemTrayTitle" Text="System Tray" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
 
                     <Grid>
                         <StackPanel Spacing="2" VerticalAlignment="Center">
-                            <TextBlock Text="Minimize to system tray on window close" FontWeight="Medium" />
-                            <TextBlock Text="Keeps lighting and automation active in the background when closing the window."
+                            <TextBlock x:Uid="MinimizeToTrayTitle" Text="Minimize to system tray on window close" FontWeight="Medium" />
+                            <TextBlock x:Uid="MinimizeToTrayDescription" Text="Keeps lighting and automation active in the background when closing the window."
                                        Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                         <ToggleSwitch x:Name="MinimizeToTrayToggle" HorizontalAlignment="Right" Toggled="MinimizeToTrayToggle_Toggled" />
@@ -93,10 +116,10 @@
                     CornerRadius="12"
                     Padding="24">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="About XenRGB" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <TextBlock x:Uid="AboutTitle" Text="About XenRGB" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
                     <TextBlock Text="XenRGB v1.0.0 — Modern, lightweight open-source RGB lighting controller for Windows."
                                Style="{ThemeResource BodyTextBlockStyle}" />
-                    <TextBlock Text="Built with C#, .NET 9, and WinUI 3. Zero bloat, zero cloud dependencies, pure local performance."
+                    <TextBlock x:Uid="AboutDescription" Text="Built with C#, .NET 9, and WinUI 3. Zero bloat, zero cloud dependencies, pure local performance."
                                Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Border>

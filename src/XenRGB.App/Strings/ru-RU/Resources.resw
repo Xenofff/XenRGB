@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NavDashboard.Content" xml:space="preserve">
+    <value>Панель управления</value>
+  </data>
+  <data name="NavDevices.Content" xml:space="preserve">
+    <value>Устройства</value>
+  </data>
+  <data name="NavEffects.Content" xml:space="preserve">
+    <value>Эффекты</value>
+  </data>
+  <data name="NavAutomation.Content" xml:space="preserve">
+    <value>Автоматизация</value>
+  </data>
+  <data name="SettingsPageTitle.Text" xml:space="preserve">
+    <value>Настройки</value>
+  </data>
+  <data name="SettingsPageDescription.Text" xml:space="preserve">
+    <value>Аппаратные службы, настройки приложения и системный трей.</value>
+  </data>
+  <data name="OpenRgbBackendTitle.Text" xml:space="preserve">
+    <value>Служба OpenRGB</value>
+  </data>
+  <data name="OpenRgbBackendDescription.Text" xml:space="preserve">
+    <value>XenRGB подключается к OpenRGB для управления материнскими платами, ОЗУ, видеокартами и периферией без проприетарного софта. Требуется запущенный OpenRGB с включенным SDK-сервером (порт по умолчанию 6742).</value>
+  </data>
+  <data name="OpenRgbPortHeader.Header" xml:space="preserve">
+    <value>Порт</value>
+  </data>
+  <data name="ConnectButton.Content" xml:space="preserve">
+    <value>Подключиться</value>
+  </data>
+  <data name="EnginePerformanceTitle.Text" xml:space="preserve">
+    <value>Производительность движка</value>
+  </data>
+  <data name="TargetFpsTitle.Text" xml:space="preserve">
+    <value>Целевая частота анимации</value>
+  </data>
+  <data name="TargetFpsDescription.Text" xml:space="preserve">
+    <value>Управляет частотой рендеринга эффектов и отправки данных на устройства.</value>
+  </data>
+  <data name="Fps15.Content" xml:space="preserve">
+    <value>15 FPS (Минимальная нагрузка)</value>
+  </data>
+  <data name="Fps30.Content" xml:space="preserve">
+    <value>30 FPS (Стандарт - Рекомендуется)</value>
+  </data>
+  <data name="Fps60.Content" xml:space="preserve">
+    <value>60 FPS (Максимальная плавность)</value>
+  </data>
+  <data name="LanguageSettingsTitle.Text" xml:space="preserve">
+    <value>Язык (требуется перезапуск)</value>
+  </data>
+  <data name="DisplayLanguageHeader.Text" xml:space="preserve">
+    <value>Язык интерфейса</value>
+  </data>
+  <data name="DisplayLanguageDescription.Text" xml:space="preserve">
+    <value>Выберите язык приложения. Для полного применения изменений требуется перезапуск.</value>
+  </data>
+  <data name="SystemTrayTitle.Text" xml:space="preserve">
+    <value>Системный трей</value>
+  </data>
+  <data name="MinimizeToTrayTitle.Text" xml:space="preserve">
+    <value>Сворачивать в трей при закрытии окна</value>
+  </data>
+  <data name="MinimizeToTrayDescription.Text" xml:space="preserve">
+    <value>Позволяет эффектам и автоматизации работать в фоновом режиме.</value>
+  </data>
+  <data name="AboutTitle.Text" xml:space="preserve">
+    <value>О XenRGB</value>
+  </data>
+  <data name="AboutDescription.Text" xml:space="preserve">
+    <value>Разработано на C#, .NET 9 и WinUI 3. Ноль мусора, ноль облачных зависимостей, только локальная производительность.</value>
+  </data>
+  <data name="DashboardTitle.Text" xml:space="preserve"><value>Панель управления</value></data>
+  <data name="DashboardDescription.Text" xml:space="preserve"><value>Визуальное пространственное представление</value></data>
+  <data name="DevicesTitle.Text" xml:space="preserve"><value>Устройства</value></data>
+  <data name="DevicesDescription.Text" xml:space="preserve"><value>Управление подключенным RGB оборудованием</value></data>
+  <data name="AutomationTitle.Text" xml:space="preserve"><value>Автоматизация</value></data>
+  <data name="AutomationDescription.Text" xml:space="preserve"><value>Настройка автоматических правил на основе запущенных приложений и состояния системы</value></data>
+  <data name="EffectsTitle.Text" xml:space="preserve"><value>Эффекты</value></data>
+  <data name="EffectsDescription.Text" xml:space="preserve"><value>Выбирайте и настраивайте эффекты, или загружайте пользовательские плагины.</value></data>
+  <data name="OpenEffectsFolderButton.Content" xml:space="preserve"><value>Открыть папку эффектов</value></data>
+  <data name="ReloadEffectsButton.Content" xml:space="preserve"><value>Перезагрузить эффекты</value></data>
+  <data name="AvailableEffectsTitle.Text" xml:space="preserve"><value>Доступные эффекты</value></data>
+  <data name="EffectSettingsTitle.Text" xml:space="preserve"><value>Настройки эффекта</value></data>
+  <data name="SelectEffectPlaceholder.Text" xml:space="preserve"><value>Выберите эффект</value></data>
+  <data name="SelectEffectDescriptionPlaceholder.Text" xml:space="preserve"><value>Активируйте эффект, чтобы настроить его параметры.</value></data>
+  <data name="EffectParametersTitle.Text" xml:space="preserve"><value>Параметры</value></data>
+  <data name="ActivateEffectButton.Content" xml:space="preserve"><value>Активировать</value></data>
+</root>

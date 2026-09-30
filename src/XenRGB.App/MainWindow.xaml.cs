@@ -29,9 +29,14 @@ public sealed partial class MainWindow : Window
         _hwnd = WindowNative.GetWindowHandle(this);
 
         // Size and center window
+        uint dpi = GetDpiForWindow(_hwnd);
+        float scale = (dpi == 0 ? 96f : dpi) / 96f;
+        int minWidth = (int)(1560 * scale);
+        int minHeight = (int)(1090 * scale);
+
         var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);
         var appWindow = AppWindow.GetFromWindowId(windowId);
-        appWindow.Resize(new Windows.Graphics.SizeInt32(1100, 750));
+        appWindow.Resize(new Windows.Graphics.SizeInt32(minWidth, minHeight));
 
         try
         {
@@ -123,8 +128,8 @@ public sealed partial class MainWindow : Window
             var minMaxInfo = Marshal.PtrToStructure<MINMAXINFO>(lParam);
             uint dpi = GetDpiForWindow(hWnd);
             float scale = (dpi == 0 ? 96f : dpi) / 96f;
-            minMaxInfo.ptMinTrackSize.X = (int)(1000 * scale);
-            minMaxInfo.ptMinTrackSize.Y = (int)(700 * scale);
+            minMaxInfo.ptMinTrackSize.X = (int)(1560 * scale);
+            minMaxInfo.ptMinTrackSize.Y = (int)(1090 * scale);
             Marshal.StructureToPtr(minMaxInfo, lParam, false);
             return IntPtr.Zero;
         }

@@ -30,6 +30,10 @@ public sealed partial class SettingsPage : Page
             _ => 1 // 30 FPS
         };
 
+        var lang = settings.Language;
+        if (lang == "ru-RU") LanguageComboBox.SelectedIndex = 1;
+        else LanguageComboBox.SelectedIndex = 0;
+
         MinimizeToTrayToggle.IsOn = settings.MinimizeToTrayOnClose;
         _isInitializing = false;
     }
@@ -70,5 +74,16 @@ public sealed partial class SettingsPage : Page
 
         _coord.ConfigService.Settings.MinimizeToTrayOnClose = MinimizeToTrayToggle.IsOn;
         _ = _coord.ConfigService.SaveAsync();
+    }
+
+    private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+
+        if (LanguageComboBox.SelectedItem is ComboBoxItem item && item.Tag is string lang)
+        {
+            _coord.ConfigService.Settings.Language = lang;
+            _ = _coord.ConfigService.SaveAsync();
+        }
     }
 }

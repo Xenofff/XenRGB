@@ -43,6 +43,17 @@ public partial class App : Application
             catch { }
         };
 
+        try
+        {
+            var configSvc = new XenRGB.Core.Configuration.JsonConfigurationService();
+            configSvc.LoadAsync().GetAwaiter().GetResult();
+            if (!string.IsNullOrEmpty(configSvc.Settings.Language))
+            {
+                Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = configSvc.Settings.Language;
+            }
+        }
+        catch { }
+
         InitializeComponent();
     }
 

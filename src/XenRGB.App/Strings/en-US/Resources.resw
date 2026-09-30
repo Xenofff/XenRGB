@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NavDashboard.Content" xml:space="preserve">
+    <value>Dashboard</value>
+  </data>
+  <data name="NavDevices.Content" xml:space="preserve">
+    <value>Devices</value>
+  </data>
+  <data name="NavEffects.Content" xml:space="preserve">
+    <value>Effects</value>
+  </data>
+  <data name="NavAutomation.Content" xml:space="preserve">
+    <value>Automation</value>
+  </data>
+  <data name="SettingsPageTitle.Text" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SettingsPageDescription.Text" xml:space="preserve">
+    <value>Hardware backends, application preferences, and system tray integration.</value>
+  </data>
+  <data name="OpenRgbBackendTitle.Text" xml:space="preserve">
+    <value>OpenRGB Hardware Backend</value>
+  </data>
+  <data name="OpenRgbBackendDescription.Text" xml:space="preserve">
+    <value>XenRGB connects to OpenRGB's native network SDK to communicate with motherboards, RAM, GPUs, and peripherals without proprietary vendor bloat. Requires OpenRGB running with the SDK Server enabled (default port 6742).</value>
+  </data>
+  <data name="OpenRgbPortHeader.Header" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="ConnectButton.Content" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="EnginePerformanceTitle.Text" xml:space="preserve">
+    <value>Engine Performance</value>
+  </data>
+  <data name="TargetFpsTitle.Text" xml:space="preserve">
+    <value>Target Animation Frame Rate</value>
+  </data>
+  <data name="TargetFpsDescription.Text" xml:space="preserve">
+    <value>Controls how frequently RGB frames are computed and transmitted to hardware.</value>
+  </data>
+  <data name="Fps15.Content" xml:space="preserve">
+    <value>15 FPS (Ultra-low CPU)</value>
+  </data>
+  <data name="Fps30.Content" xml:space="preserve">
+    <value>30 FPS (Standard - Recommended)</value>
+  </data>
+  <data name="Fps60.Content" xml:space="preserve">
+    <value>60 FPS (Maximum Smoothness)</value>
+  </data>
+  <data name="LanguageSettingsTitle.Text" xml:space="preserve">
+    <value>Language (Requires Restart)</value>
+  </data>
+  <data name="DisplayLanguageHeader.Text" xml:space="preserve">
+    <value>Display Language</value>
+  </data>
+  <data name="DisplayLanguageDescription.Text" xml:space="preserve">
+    <value>Select the interface language. A restart of the application is required to fully apply changes.</value>
+  </data>
+  <data name="SystemTrayTitle.Text" xml:space="preserve">
+    <value>System Tray</value>
+  </data>
+  <data name="MinimizeToTrayTitle.Text" xml:space="preserve">
+    <value>Minimize to system tray on window close</value>
+  </data>
+  <data name="MinimizeToTrayDescription.Text" xml:space="preserve">
+    <value>Keeps lighting and automation active in the background when closing the window.</value>
+  </data>
+  <data name="AboutTitle.Text" xml:space="preserve">
+    <value>About XenRGB</value>
+  </data>
+  <data name="AboutDescription.Text" xml:space="preserve">
+    <value>Built with C#, .NET 9, and WinUI 3. Zero bloat, zero cloud dependencies, pure local performance.</value>
+  </data>
+  <data name="DashboardTitle.Text" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="DashboardDescription.Text" xml:space="preserve"><value>Visual spatial representation</value></data>
+  <data name="DevicesTitle.Text" xml:space="preserve"><value>Devices</value></data>
+  <data name="DevicesDescription.Text" xml:space="preserve"><value>Manage your connected RGB hardware</value></data>
+  <data name="AutomationTitle.Text" xml:space="preserve"><value>Automation</value></data>
+  <data name="AutomationDescription.Text" xml:space="preserve"><value>Set up automatic rules based on active application or system state</value></data>
+  <data name="EffectsTitle.Text" xml:space="preserve"><value>Effects</value></data>
+  <data name="EffectsDescription.Text" xml:space="preserve"><value>Choose and customize your active lighting effect, or load custom open-source community effects.</value></data>
+  <data name="OpenEffectsFolderButton.Content" xml:space="preserve"><value>Open Effects Folder</value></data>
+  <data name="ReloadEffectsButton.Content" xml:space="preserve"><value>Reload Effects</value></data>
+  <data name="AvailableEffectsTitle.Text" xml:space="preserve"><value>Available Effects</value></data>
+  <data name="EffectSettingsTitle.Text" xml:space="preserve"><value>Effect Settings</value></data>
+  <data name="SelectEffectPlaceholder.Text" xml:space="preserve"><value>Select an effect</value></data>
+  <data name="SelectEffectDescriptionPlaceholder.Text" xml:space="preserve"><value>Activate an effect to configure its parameters.</value></data>
+  <data name="EffectParametersTitle.Text" xml:space="preserve"><value>Parameters</value></data>
+  <data name="ActivateEffectButton.Content" xml:space="preserve"><value>Activate</value></data>
+</root>

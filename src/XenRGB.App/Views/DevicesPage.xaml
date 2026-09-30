@@ -13,7 +13,7 @@
             <!-- Page Header -->
             <Grid>
                 <StackPanel Spacing="4">
-                    <TextBlock Text="Devices" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
+                    <TextBlock x:Uid="DevicesTitle" Text="Devices" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
                     <TextBlock Text="Manage your OpenRGB hardware, WLED strips, and simulated lighting devices."
                                Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>

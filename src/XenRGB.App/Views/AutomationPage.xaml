@@ -12,7 +12,7 @@
             
             <!-- Page Header -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Automation" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
+                <TextBlock x:Uid="AutomationTitle" Text="Automation" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
                 <TextBlock Text="Configure intelligent lighting control based on display state and system inactivity."
                            Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>

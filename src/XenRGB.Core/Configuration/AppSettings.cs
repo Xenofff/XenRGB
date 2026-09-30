@@ -16,5 +16,6 @@ public sealed class AppSettings
     public bool MinimizeToTrayOnClose { get; set; } = true;
     public List<string> WledDeviceIps { get; set; } = new();
     public string ActiveProfileId { get; set; } = string.Empty;
+    public string Language { get; set; } = string.Empty;
     public List<UserProfile> Profiles { get; set; } = new();
 }
