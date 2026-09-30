@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -207,6 +207,48 @@ public class OpenRgbProtocolAndIntegrationTests
 
         Assert.Equal(87, dev.CurrentColors.Length);
         Assert.NotEqual(RgbColor.Black, dev.CurrentColors[0]);
+    }
+
+    [Fact]
+    public async Task OpenRgb_RealServer_ContinuousRainbowIntegrationTest()
+    {
+        using var client = new OpenRgbClient();
+        bool connected = await client.ConnectAsync("127.0.0.1", 6742);
+        if (!connected)
+        {
+            // Real OpenRGB server is not running on local machine, skip test gracefully
+            return;
+        }
+
+        using var provider = new OpenRgbProvider(client, "127.0.0.1", 6742);
+        var devices = await provider.DiscoverDevicesAsync();
+        var hyperx = devices.OfType<OpenRgbDevice>().FirstOrDefault(d => d.Name.Contains("HyperX", StringComparison.OrdinalIgnoreCase)) 
+                     ?? devices.OfType<OpenRgbDevice>().FirstOrDefault();
+        if (hyperx == null)
+        {
+            return;
+        }
+
+        var canvas = new SpatialCanvas();
+        canvas.AddOrUpdatePlacement(new CanvasDevicePlacement(hyperx.Id, hyperx.Name, 0.5f, 0.5f, 1.0f, 0.5f));
+        using var engine = new RgbEngine(canvas);
+        engine.RegisterDevice(hyperx);
+
+        var effect = new RainbowEffect();
+        effect.Initialize();
+        engine.ActiveEffect = effect;
+
+        engine.Start();
+
+        // Run continuously for 130 seconds (over 2 minutes) to thoroughly verify multiple 10s heartbeat cycles
+        long initialTransmissions = hyperx.TransmissionCount;
+        for (int i = 0; i < 13; i++)
+        {
+            await Task.Delay(10000);
+            Assert.Equal(DeviceConnectionState.Connected, hyperx.ConnectionState);
+            Assert.True(hyperx.TransmissionCount > initialTransmissions);
+            initialTransmissions = hyperx.TransmissionCount;
+        }
     }
 
     private static byte[] CreateValidControllerData(uint protocolVersion, string name, int ledsCount)

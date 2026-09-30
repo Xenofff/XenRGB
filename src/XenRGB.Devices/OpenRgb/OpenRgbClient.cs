@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
@@ -84,6 +84,9 @@ public sealed class OpenRgbClient : IOpenRgbClient
             DisconnectInternal();
             _controllerUniqueIds = null;
             _tcp = new TcpClient();
+            _tcp.NoDelay = true;
+            _tcp.ReceiveTimeout = 5000;
+            _tcp.SendTimeout = 5000;
 
             using var toCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             toCts.CancelAfter(TimeSpan.FromSeconds(3));
@@ -188,9 +191,9 @@ public sealed class OpenRgbClient : IOpenRgbClient
 
             await SendRawAsync(devId, CommandUpdateLeds, payload, ct).ConfigureAwait(false);
 
-            // Zero-wait ACK drain (v6 only).
+            // Zero-wait drain of all available ACKs (v6 only).
             if (ServerProtocolVersion >= 6)
-                await DrainOneIfAvailableAsync(ct).ConfigureAwait(false);
+                await DrainAllAvailableAsync(ct).ConfigureAwait(false);
         }
         finally { _networkLock.Release(); }
     }
@@ -202,7 +205,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
         try
         {
             await SendRawAsync(0, CommandRequestRescanDevices, Array.Empty<byte>(), ct).ConfigureAwait(false);
-            await DrainOneIfAvailableAsync(ct).ConfigureAwait(false);
+            await DrainAllAvailableAsync(ct).ConfigureAwait(false);
         }
         catch { /* server may not support rescan */ }
         finally { _networkLock.Release(); }
@@ -212,13 +215,12 @@ public sealed class OpenRgbClient : IOpenRgbClient
 
     /// <summary>
     /// Reads packets in a loop, skipping known push packets, until the expected command
-    /// ID is received.  maxSkips=512 absorbs up to 512 consecutive push packets (e.g.
-    /// ACKs accumulated between heartbeat periods) before giving up.
+    /// ID is received. maxSkips absorbs any consecutive push packets (e.g. ACKs).
     /// </summary>
     private async Task<(uint DeviceId, uint CommandId, byte[] Data)> ReadExpectedAsync(
         uint expectedCmd, CancellationToken ct)
     {
-        const int maxSkips = 512;
+        const int maxSkips = 4096;
         for (int i = 0; i < maxSkips; i++)
         {
             var pkt = await ReadPacketAsync(ct).ConfigureAwait(false);
@@ -231,15 +233,26 @@ public sealed class OpenRgbClient : IOpenRgbClient
     }
 
     /// <summary>
-    /// Zero-wait drain: if a packet is already sitting in the TCP receive buffer
-    /// (DataAvailable == true), read and discard exactly one packet.  No sleep, no loop.
-    /// Safe to call on the LED hot path.  MUST be called inside _networkLock.
+    /// Zero-wait drain: while packets are sitting in the TCP receive buffer
+    /// (DataAvailable == true), read and discard them (up to 128 per call).
+    /// Safe to call on the LED hot path. MUST be called inside _networkLock.
     /// </summary>
-    private async Task DrainOneIfAvailableAsync(CancellationToken ct)
+    private async Task DrainAllAvailableAsync(CancellationToken ct)
     {
-        if (_stream == null || !_stream.DataAvailable) return;
-        try { await ReadPacketAsync(ct).ConfigureAwait(false); }
-        catch { /* ignore; socket may have just disconnected */ }
+        if (_stream == null) return;
+        int drained = 0;
+        while (_stream.DataAvailable && drained < 128 && !ct.IsCancellationRequested)
+        {
+            try
+            {
+                await ReadPacketAsync(ct).ConfigureAwait(false);
+                drained++;
+            }
+            catch
+            {
+                break;
+            }
+        }
     }
 
     /// <summary>
