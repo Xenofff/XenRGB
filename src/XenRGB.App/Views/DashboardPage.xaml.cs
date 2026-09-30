@@ -209,9 +209,17 @@ public sealed partial class DashboardPage : Page
     private void SpatialSurface_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var pt = e.GetCurrentPoint(SpatialSurface);
-        var hit = VisualTreeHelper.FindElementsInHostCoordinates(pt.Position, SpatialSurface)
-            .OfType<Border>()
-            .FirstOrDefault(b => b.Tag is CanvasDevicePlacement);
+        Border? hit = null;
+        var elem = e.OriginalSource as FrameworkElement;
+        while (elem != null)
+        {
+            if (elem is Border b && b.Tag is CanvasDevicePlacement)
+            {
+                hit = b;
+                break;
+            }
+            elem = VisualTreeHelper.GetParent(elem) as FrameworkElement;
+        }
 
         if (hit != null && hit.Tag is CanvasDevicePlacement placement)
         {
@@ -223,7 +231,12 @@ public sealed partial class DashboardPage : Page
 
             SpatialSurface.CapturePointer(e.Pointer);
             UpdateInspector();
-            RebuildCanvasVisuals();
+            
+            if (_deviceVisuals.TryGetValue(placement.DeviceId, out var visuals))
+            {
+                visuals.Container.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 59, 130, 246));
+                visuals.Container.BorderThickness = new Thickness(2);
+            }
             e.Handled = true;
         }
         else

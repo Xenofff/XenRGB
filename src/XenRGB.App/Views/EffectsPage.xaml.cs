@@ -34,6 +34,13 @@ public sealed partial class EffectsPage : Page
 
             RebuildParametersUi(active);
         }
+        else
+        {
+            ActiveEffectTitle.Text = "Select an effect";
+            ActiveEffectCategory.Text = "None";
+            ActiveEffectDescription.Text = "Activate an effect to configure its parameters.";
+            ParametersContainer.Children.Clear();
+        }
     }
 
     private void RebuildParametersUi(IEffect effect)
