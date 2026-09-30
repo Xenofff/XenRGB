@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using XenRGB.Core.Devices;
 
 namespace XenRGB.Devices.OpenRgb;
@@ -91,6 +92,56 @@ public sealed class OpenRgbProvider : IDeviceProvider
         }
     }
 
+    /// <summary>
+    /// Sends a rescan command to OpenRGB and actively drains push packets
+    /// while waiting for device detection to complete (up to 30 seconds).
+    /// This is called when OpenRGB was launched with --nodetect.
+    /// </summary>
+    private async Task TriggerRescanAndWaitAsync(CancellationToken ct)
+    {
+        try
+        {
+            // Send the rescan command — this triggers USB device detection inside OpenRGB
+            await _client.RequestRescanAsync(ct).ConfigureAwait(false);
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] RequestRescan sent, waiting for detection...");
+
+            // Now actively drain push packets (detection progress, device list changes)
+            // while polling GetControllerCount to see when devices appear.
+            // This is critical: we MUST keep reading the socket to prevent OpenRGB's
+            // send() from blocking on a full TCP buffer, which would deadlock USB detection.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+            {
+                // Drain any pending push packets for 2 seconds
+                await _client.DrainPushPacketsAsync(ct, 2000).ConfigureAwait(false);
+
+                // Check if devices have appeared
+                try
+                {
+                    uint count = await _client.GetControllerCountAsync(ct).ConfigureAwait(false);
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Rescan poll: controller count = {count}");
+                    if (count > 0)
+                    {
+                        // Devices found! Discover them.
+                        await DiscoverOrRefreshDevicesAsync(ct).ConfigureAwait(false);
+                        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Rescan complete, devices discovered");
+                        return;
+                    }
+                }
+                catch
+                {
+                    // GetControllerCount may fail if OpenRGB is mid-scan, retry
+                }
+            }
+
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Rescan wait timed out after 30s");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] TriggerRescanAndWaitAsync error: {ex.Message}");
+        }
+    }
+
     public void StartReconnectLoop()
     {
         if (_isDisposed) return;
@@ -119,8 +170,8 @@ public sealed class OpenRgbProvider : IDeviceProvider
             }
             else if (devCount == 0)
             {
-                // Rapid polling while OpenRGB is scanning hardware devices at startup
-                delay = TimeSpan.FromSeconds(1);
+                // Moderate polling when connected but no devices found yet
+                delay = TimeSpan.FromSeconds(2);
             }
             else
             {
@@ -135,7 +186,16 @@ public sealed class OpenRgbProvider : IDeviceProvider
 
             try
             {
-                await Task.Delay(delay, _loopCts.Token).ConfigureAwait(false);
+                if (_client.IsConnected && devCount == 0)
+                {
+                    // Actively drain push packets while waiting for device detection
+                    // to prevent TCP buffer backpressure on OpenRGB
+                    await _client.DrainPushPacketsAsync(_loopCts.Token, (int)delay.TotalMilliseconds).ConfigureAwait(false);
+                }
+                else
+                {
+                    await Task.Delay(delay, _loopCts.Token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -220,6 +280,7 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 ConnectionStatusMessage = count == 0
                     ? $"Connected to {_host}:{_port} (v{_client.ServerProtocolVersion}, scanning devices...)"
                     : $"Connected to {_host}:{_port} (v{_client.ServerProtocolVersion}, {count} device(s))";
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Provider discovered {count} device(s)");
             }
             return discovered;
         }
@@ -275,7 +336,9 @@ public sealed class OpenRgbProvider : IDeviceProvider
 
     private async Task<bool> DiscoverOrRefreshDevicesAsync(CancellationToken ct)
     {
+        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] DiscoverOrRefreshDevicesAsync calling GetControllerCountAsync");
         uint count = await _client.GetControllerCountAsync(ct).ConfigureAwait(false);
+        Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] DiscoverOrRefreshDevicesAsync received count = {count}");
         var newlyDiscovered = new List<OpenRgbDevice>();
         var updatedDevices = new List<OpenRgbDevice>();
 

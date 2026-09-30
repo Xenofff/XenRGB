@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace XenRGB.Devices.OpenRgb;
 
@@ -163,6 +164,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
                     host,
                     port,
                     connectCts.Token).ConfigureAwait(false);
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] TCP Connected to {host}:{port}");
 
                 _stream = _tcp.GetStream();
 
@@ -242,6 +244,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
 
             try
             {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] OpenRgbClient: Sending CommandRequestControllerCount");
                 await SendRawAsync(
                     0,
                     CommandRequestControllerCount,
@@ -261,6 +264,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
             var reply = await ReadExpectedAsync(
                 CommandRequestControllerCount,
                 ioCts.Token).ConfigureAwait(false);
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] OpenRgbClient: Received CommandRequestControllerCount reply");
 
             if (reply.Data.Length < 4)
                 return 0;
@@ -438,6 +442,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
 
         try
         {
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] OpenRgbClient: Sending CommandRequestRescanDevices");
             await SendRawAsync(
                 0,
                 CommandRequestRescanDevices,
@@ -494,7 +499,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
     ///
     /// This is not part of the 30 FPS render path.
     /// </summary>
-    private async Task DrainPushPacketsAsync(
+    public async Task DrainPushPacketsAsync(
         CancellationToken ct,
         int maxWaitMs)
     {

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -100,4 +100,14 @@
   <data name="SelectEffectDescriptionPlaceholder.Text" xml:space="preserve"><value>Активируйте эффект, чтобы настроить его параметры.</value></data>
   <data name="EffectParametersTitle.Text" xml:space="preserve"><value>Параметры</value></data>
   <data name="ActivateEffectButton.Content" xml:space="preserve"><value>Активировать</value></data>
+  <data name="StartupTitle_Starting" xml:space="preserve"><value>Запускаем OpenRGB…</value></data>
+  <data name="StartupTitle_Connecting" xml:space="preserve"><value>Подключаемся к OpenRGB…</value></data>
+  <data name="StartupTitle_Discovering" xml:space="preserve"><value>Поиск RGB-устройств…</value></data>
+  <data name="StartupTitle_Failed" xml:space="preserve"><value>Не удалось подключиться к OpenRGB</value></data>
+  <data name="StartupMessage_Starting" xml:space="preserve"><value>XenRGB запускает фоновый процесс OpenRGB…</value></data>
+  <data name="StartupMessage_Connecting" xml:space="preserve"><value>Устанавливаем соединение с сервером OpenRGB…</value></data>
+  <data name="StartupMessage_Discovering" xml:space="preserve"><value>Выполняется поиск подключенных RGB-устройств…</value></data>
+  <data name="StartupMessage_Failed" xml:space="preserve"><value>OpenRGB запущен, но XenRGB пока не может подключиться к его серверу.</value></data>
+  <data name="StartupContinueButton.Content" xml:space="preserve"><value>Продолжить</value></data>
+  <data name="StartupRetryButton.Content" xml:space="preserve"><value>Повторить</value></data>
 </root>

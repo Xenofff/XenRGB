@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -16,6 +17,16 @@ using XenRGB.Effects;
 using XenRGB.SDK;
 
 namespace XenRGB.App.Services;
+
+public enum OpenRgbStartupState
+{
+    None,
+    Starting,
+    Connecting,
+    Discovering,
+    Connected,
+    Failed
+}
 
 /// <summary>
 /// Central application coordinator uniting configuration, engine, canvas, devices, and automation.
@@ -40,6 +51,7 @@ public sealed class AppCoordinator : IDisposable
 
     public event EventHandler? DevicesChanged;
     public event EventHandler? StateChanged;
+    public event EventHandler<OpenRgbStartupState>? OpenRgbStateChanged;
 
     public AppCoordinator()
     {
@@ -117,20 +129,16 @@ public sealed class AppCoordinator : IDisposable
         OpenRgbProvider.DevicesUpdated += (s, e) =>
         {
             SyncProviderDevices(OpenRgbProvider.Devices);
+            if (OpenRgbProvider.IsConnected && OpenRgbProvider.Devices.Count > 0)
+            {
+                OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Connected);
+            }
         };
 
         if (ConfigService.Settings.AutoConnectOpenRgb)
         {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await OpenRgbProvider.InitializeAsync();
-                }
-                catch { }
-            });
+            _ = TryConnectOpenRgbAsync();
         }
-
         if (ConfigService.Settings.WledDeviceIps.Count > 0)
         {
             _ = Task.Run(async () =>
@@ -145,6 +153,54 @@ public sealed class AppCoordinator : IDisposable
 
         // 6. Start the engine loop
         Engine.Start();
+    }
+
+    public async Task TryConnectOpenRgbAsync()
+    {
+        try
+        {
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Onboarding state changed: Starting");
+            OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Starting);
+            bool serverRunning = await OpenRgbServerManager.EnsureServerRunningAsync(
+                ConfigService.Settings.OpenRgbHost, 
+                ConfigService.Settings.OpenRgbPort);
+
+            if (!serverRunning)
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Onboarding state changed: Failed (server not running)");
+                OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Failed);
+                return;
+            }
+
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Onboarding state changed: Connecting");
+            OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Connecting);
+            
+            // Hook into discovery internally or just rely on the first loop
+            // OpenRgbProvider's TryConnectAndDiscoverAsync takes a bit, so we can say Discovering right away
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Onboarding state changed: Discovering");
+            OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Discovering);
+
+            await OpenRgbProvider.InitializeAsync();
+            
+            if (OpenRgbProvider.IsConnected)
+            {
+                if (OpenRgbProvider.Devices.Count > 0)
+                {
+                    Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Onboarding state changed: Connected (Devices found)");
+                    OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Connected);
+                }
+            }
+            else
+            {
+                Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Onboarding state changed: Failed (Not connected)");
+                OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Failed);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] Onboarding state changed: Failed (Exception: {ex.Message})");
+            OpenRgbStateChanged?.Invoke(this, OpenRgbStartupState.Failed);
+        }
     }
 
     /// <summary>

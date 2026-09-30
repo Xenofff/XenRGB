@@ -40,5 +40,21 @@
 
             <Frame x:Name="ContentFrame" />
         </NavigationView>
+
+        <!-- Startup Overlay -->
+        <Grid x:Name="StartupOverlay" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Opacity="0.95" Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16" MaxWidth="400">
+                <TextBlock x:Name="StartupTitle" Style="{StaticResource TitleTextBlockStyle}" TextAlignment="Center" />
+                <ProgressRing x:Name="StartupProgress" IsActive="True" Width="64" Height="64" Margin="0,16" />
+                <TextBlock x:Name="StartupMessage" Style="{StaticResource BodyTextBlockStyle}" TextAlignment="Center" TextWrapping="Wrap" />
+                
+                <TextBlock x:Name="StartupErrorText" Visibility="Collapsed" Style="{StaticResource BodyTextBlockStyle}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12" Margin="0,24,0,0">
+                    <Button x:Name="RetryButton" x:Uid="StartupRetryButton" Click="RetryButton_Click" Visibility="Collapsed" Style="{StaticResource AccentButtonStyle}" />
+                    <Button x:Name="ContinueButton" x:Uid="StartupContinueButton" Click="ContinueButton_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Page>

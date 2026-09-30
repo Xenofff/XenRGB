@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -100,4 +100,14 @@
   <data name="SelectEffectDescriptionPlaceholder.Text" xml:space="preserve"><value>Activate an effect to configure its parameters.</value></data>
   <data name="EffectParametersTitle.Text" xml:space="preserve"><value>Parameters</value></data>
   <data name="ActivateEffectButton.Content" xml:space="preserve"><value>Activate</value></data>
+  <data name="StartupTitle_Starting" xml:space="preserve"><value>Starting OpenRGB...</value></data>
+  <data name="StartupTitle_Connecting" xml:space="preserve"><value>Connecting to OpenRGB...</value></data>
+  <data name="StartupTitle_Discovering" xml:space="preserve"><value>Discovering RGB devices...</value></data>
+  <data name="StartupTitle_Failed" xml:space="preserve"><value>Failed to connect to OpenRGB</value></data>
+  <data name="StartupMessage_Starting" xml:space="preserve"><value>XenRGB is starting the OpenRGB backend...</value></data>
+  <data name="StartupMessage_Connecting" xml:space="preserve"><value>Establishing connection with the OpenRGB server...</value></data>
+  <data name="StartupMessage_Discovering" xml:space="preserve"><value>Scanning for connected RGB hardware...</value></data>
+  <data name="StartupMessage_Failed" xml:space="preserve"><value>OpenRGB is running, but XenRGB could not connect to its server.</value></data>
+  <data name="StartupContinueButton.Content" xml:space="preserve"><value>Continue</value></data>
+  <data name="StartupRetryButton.Content" xml:space="preserve"><value>Retry</value></data>
 </root>
