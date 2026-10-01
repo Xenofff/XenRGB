@@ -1,16 +1,16 @@
 {
   "id": "cotton-candy",
   "name": "Cotton Candy",
-  "version": "2.0.0",
-  "author": "XenRGB",
-  "description": "A calm, smooth flowing atmospheric scene with drifting cyan and magenta clouds over a rich gradient.",
+  "version": "3.0.0",
+  "author": "Alex Krastev (SignalRGB), ported by XenRGB",
+  "description": "This effect is sure to make your setup look sweet.",
   "category": "Atmospheric",
   "defaultParameters": {
-    "bg_color_1": "#0B0C2A",
-    "bg_color_2": "#3A0CA3",
-    "bg_color_3": "#003B73",
-    "color_1": "#00F0FF",
-    "color_2": "#FF007F",
-    "speed": 1.0
+    "bg_color_1": "#540074",
+    "bg_color_2": "#004a79",
+    "bg_color_3": "#730073",
+    "color_1": "#00FFFF",
+    "color_2": "#FF00FF",
+    "speed": 30
   }
 }
