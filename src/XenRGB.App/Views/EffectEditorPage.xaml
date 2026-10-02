@@ -1,0 +1,95 @@
+<Page
+    x:Class="XenRGB.App.Views.EffectEditorPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid Padding="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right">
+            <AppBarButton Icon="Add" x:Uid="EffectEditorNewButton" Label="New" />
+            <AppBarButton Icon="OpenFile" x:Uid="EffectEditorOpenButton" Label="Open" />
+            <AppBarButton Icon="Save" x:Uid="EffectEditorSaveButton" Label="Save" />
+            <AppBarButton Icon="SaveLocal" x:Uid="EffectEditorSaveAsButton" Label="Save As" />
+            <AppBarSeparator />
+            <AppBarButton Icon="Play" x:Uid="EffectEditorPreviewButton" Label="Preview on Devices" />
+        </CommandBar>
+
+        <Grid Grid.Row="1" Margin="0,16,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="250" />
+            </Grid.ColumnDefinitions>
+
+            <!-- COMPONENTS & LAYERS -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <TextBlock x:Uid="EffectEditorComponentsTitle" Text="COMPONENTS" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,8" />
+                    <Button Content="+ Color" Margin="0,0,0,4" HorizontalAlignment="Stretch" />
+                    <Button Content="+ Circle" Margin="0,0,0,4" HorizontalAlignment="Stretch" />
+                    <Button Content="+ Rectangle" Margin="0,0,0,4" HorizontalAlignment="Stretch" />
+                    <Button Content="+ Gradient" Margin="0,0,0,4" HorizontalAlignment="Stretch" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Margin="0,16,0,0">
+                    <TextBlock x:Uid="EffectEditorLayersTitle" Text="LAYERS" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,8" />
+                    <ListView x:Name="LayersList" SelectionMode="Single">
+                        <ListViewItem Content="Background" />
+                        <ListViewItem Content="Circle" />
+                    </ListView>
+                </StackPanel>
+            </Grid>
+
+            <!-- CANVAS -->
+            <Border Grid.Column="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" Margin="16,0">
+                <Grid>
+                    <!-- Simulated Canvas for MVP -->
+                    <TextBlock Text="Canvas Preview (WIP)" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Border>
+
+            <!-- PROPERTIES -->
+            <ScrollViewer Grid.Column="2">
+                <StackPanel>
+                    <TextBlock x:Uid="EffectEditorPropertiesTitle" Text="PROPERTIES" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,0,0,8" />
+                    <TextBlock Text="Transform" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,4" />
+                    <TextBox Header="X" Text="0.5" Margin="0,0,0,4" />
+                    <TextBox Header="Y" Text="0.5" Margin="0,0,0,4" />
+                    <TextBox Header="Size" Text="0.2" Margin="0,0,0,4" />
+                    
+                    <TextBlock Text="Appearance" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
+                    <TextBox Header="Color" Text="#00FF80" Margin="0,0,0,4" />
+                    <TextBox Header="Opacity" Text="1.0" Margin="0,0,0,4" />
+                    
+                    <TextBlock Text="Animation" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
+                    <ComboBox Header="Type" SelectedIndex="1" Margin="0,0,0,4" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="None" />
+                        <ComboBoxItem Content="Move" />
+                    </ComboBox>
+                    <TextBox Header="Speed" Text="50" Margin="0,0,0,4" />
+                    <TextBox Header="Direction" Text="90" Margin="0,0,0,4" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+            <Button x:Uid="EffectEditorPlayButton" Content="▶ Play" />
+            <Button x:Uid="EffectEditorStopButton" Content="⏹ Stop" />
+            <TextBlock Text="Time: 00:00.00" VerticalAlignment="Center" Margin="16,0,0,0" />
+        </StackPanel>
+    </Grid>
+</Page>

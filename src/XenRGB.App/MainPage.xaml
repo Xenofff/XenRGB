@@ -31,6 +31,11 @@
                         <FontIcon Glyph="&#xE790;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Uid="NavEffectEditor" Content="Effect Editor" Tag="effecteditor">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Uid="NavAutomation" Content="Automation" Tag="automation">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xEC05;" />

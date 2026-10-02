@@ -110,4 +110,15 @@
   <data name="StartupMessage_Failed" xml:space="preserve"><value>OpenRGB запущен, но XenRGB пока не может подключиться к его серверу.</value></data>
   <data name="StartupContinueButton.Content" xml:space="preserve"><value>Продолжить</value></data>
   <data name="StartupRetryButton.Content" xml:space="preserve"><value>Повторить</value></data>
+  <data name="NavEffectEditor.Content" xml:space="preserve"><value>Редактор эффектов</value></data>
+  <data name="EffectEditorNewButton.Label" xml:space="preserve"><value>Новый</value></data>
+  <data name="EffectEditorOpenButton.Label" xml:space="preserve"><value>Открыть</value></data>
+  <data name="EffectEditorSaveButton.Label" xml:space="preserve"><value>Сохранить</value></data>
+  <data name="EffectEditorSaveAsButton.Label" xml:space="preserve"><value>Сохранить как</value></data>
+  <data name="EffectEditorPreviewButton.Label" xml:space="preserve"><value>Предпросмотр на устройствах</value></data>
+  <data name="EffectEditorComponentsTitle.Text" xml:space="preserve"><value>КОМПОНЕНТЫ</value></data>
+  <data name="EffectEditorLayersTitle.Text" xml:space="preserve"><value>СЛОИ</value></data>
+  <data name="EffectEditorPropertiesTitle.Text" xml:space="preserve"><value>СВОЙСТВА</value></data>
+  <data name="EffectEditorPlayButton.Content" xml:space="preserve"><value>▶ Воспроизведение</value></data>
+  <data name="EffectEditorStopButton.Content" xml:space="preserve"><value>⏹ Стоп</value></data>
 </root>

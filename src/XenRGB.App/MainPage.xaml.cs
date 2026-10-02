@@ -104,6 +104,7 @@ public sealed partial class MainPage : Page
                 "dashboard" => typeof(DashboardPage),
                 "devices" => typeof(DevicesPage),
                 "effects" => typeof(EffectsPage),
+                "effecteditor" => typeof(EffectEditorPage),
                 "automation" => typeof(AutomationPage),
                 _ => typeof(DashboardPage)
             };

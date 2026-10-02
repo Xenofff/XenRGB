@@ -110,4 +110,15 @@
   <data name="StartupMessage_Failed" xml:space="preserve"><value>OpenRGB is running, but XenRGB could not connect to its server.</value></data>
   <data name="StartupContinueButton.Content" xml:space="preserve"><value>Continue</value></data>
   <data name="StartupRetryButton.Content" xml:space="preserve"><value>Retry</value></data>
+  <data name="NavEffectEditor.Content" xml:space="preserve"><value>Effect Editor</value></data>
+  <data name="EffectEditorNewButton.Label" xml:space="preserve"><value>New</value></data>
+  <data name="EffectEditorOpenButton.Label" xml:space="preserve"><value>Open</value></data>
+  <data name="EffectEditorSaveButton.Label" xml:space="preserve"><value>Save</value></data>
+  <data name="EffectEditorSaveAsButton.Label" xml:space="preserve"><value>Save As</value></data>
+  <data name="EffectEditorPreviewButton.Label" xml:space="preserve"><value>Preview on Devices</value></data>
+  <data name="EffectEditorComponentsTitle.Text" xml:space="preserve"><value>COMPONENTS</value></data>
+  <data name="EffectEditorLayersTitle.Text" xml:space="preserve"><value>LAYERS</value></data>
+  <data name="EffectEditorPropertiesTitle.Text" xml:space="preserve"><value>PROPERTIES</value></data>
+  <data name="EffectEditorPlayButton.Content" xml:space="preserve"><value>▶ Play</value></data>
+  <data name="EffectEditorStopButton.Content" xml:space="preserve"><value>⏹ Stop</value></data>
 </root>
