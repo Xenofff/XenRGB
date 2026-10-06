@@ -12,6 +12,7 @@ public sealed class DeviceFrameThrottler
 {
     private readonly TimeSpan? _heartbeatInterval;
     private readonly TimeProvider _timeProvider;
+    private readonly int _colorDeltaThreshold;
 
     private RgbColor[]? _lastFrame;
     private bool _hasTransmitted;
@@ -24,10 +25,11 @@ public sealed class DeviceFrameThrottler
     public long SkippedFrames { get; private set; }
     public long SentFrames { get; private set; }
 
-    public DeviceFrameThrottler(TimeSpan? heartbeatInterval = null, TimeProvider? timeProvider = null)
+    public DeviceFrameThrottler(TimeSpan? heartbeatInterval = null, TimeProvider? timeProvider = null, int colorDeltaThreshold = 1)
     {
         _heartbeatInterval = heartbeatInterval;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _colorDeltaThreshold = Math.Max(1, colorDeltaThreshold);
     }
 
     /// <summary>
@@ -44,8 +46,28 @@ public sealed class DeviceFrameThrottler
             return true;
         }
 
-        // Zero-allocation span equality
-        if (!currentFrame.SequenceEqual(_lastFrame))
+        bool hasChange = false;
+        if (_colorDeltaThreshold <= 1)
+        {
+            hasChange = !currentFrame.SequenceEqual(_lastFrame);
+        }
+        else
+        {
+            for (int i = 0; i < currentFrame.Length; i++)
+            {
+                var c1 = currentFrame[i];
+                var c2 = _lastFrame[i];
+                if (Math.Abs(c1.R - c2.R) >= _colorDeltaThreshold ||
+                    Math.Abs(c1.G - c2.G) >= _colorDeltaThreshold ||
+                    Math.Abs(c1.B - c2.B) >= _colorDeltaThreshold)
+                {
+                    hasChange = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasChange)
         {
             return true;
         }

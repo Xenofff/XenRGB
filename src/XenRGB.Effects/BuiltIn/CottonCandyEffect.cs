@@ -172,7 +172,9 @@ public sealed class CottonCandyEffect : EffectBase
         }
 
         float speedMult = GetFloat("speed", 30f) / 10f;
-        float dt = context.DeltaTime;
+        float dt = (_lastTime >= 0f && context.TotalTime > _lastTime)
+            ? Math.Max(context.DeltaTime, context.TotalTime - _lastTime)
+            : context.DeltaTime;
 
         // Move existing blobs
         for (int i = 0; i < _blobCount; i++)
@@ -218,6 +220,13 @@ public sealed class CottonCandyEffect : EffectBase
     // ── Per-LED evaluation ────────────────────────────────────────────────────
     public override RgbColor Evaluate(Point2D position, double time)
     {
+        float fTime = (float)time;
+        if (!_initialized || Math.Abs(fTime - _lastTime) > 0.001f)
+        {
+            float dt = _lastTime > 0f ? Math.Max(0.001f, fTime - _lastTime) : 0.033f;
+            Update(new EffectContext(dt, fTime));
+        }
+
         var bg1 = GetColor("bg_color_1", RgbColor.FromHex("#540074"));
         var bg2 = GetColor("bg_color_2", RgbColor.FromHex("#004a79"));
         var bg3 = GetColor("bg_color_3", RgbColor.FromHex("#730073"));
@@ -294,6 +303,10 @@ public sealed class CottonCandyEffect : EffectBase
 
     public override RgbColor RenderPixel(float x, float y, EffectContext context)
     {
+        if (!_initialized || Math.Abs(context.TotalTime - _lastTime) > 0.0001f)
+        {
+            Update(context);
+        }
         return Evaluate(new Point2D(x, y), context.TotalTime);
     }
 }

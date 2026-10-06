@@ -25,7 +25,7 @@ public sealed class RgbEngine : IDisposable
     private IEffect? _activeEffect;
     private float _masterBrightness = 1.0f;
     private bool _isLightingEnabled = true;
-    private int _targetFps = 30;
+    private int _targetFps = 25;
 
     private Thread? _renderThread;
     private readonly CancellationTokenSource _cts = new();
@@ -167,6 +167,8 @@ public sealed class RgbEngine : IDisposable
 
     private void RenderLoop()
     {
+        PowerEfficiencyHelper.EnableThreadEcoQoS();
+
         var sw = Stopwatch.StartNew();
         var fpsSw = Stopwatch.StartNew();
         long fpsFrameCount = 0;

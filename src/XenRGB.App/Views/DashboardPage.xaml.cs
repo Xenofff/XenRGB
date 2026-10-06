@@ -38,7 +38,7 @@ public sealed partial class DashboardPage : Page
         _coord.DevicesChanged += OnCoordinatorDevicesChanged;
         _coord.Canvas.CanvasChanged += OnCanvasChanged;
 
-        _ledRefreshTimer.Interval = TimeSpan.FromMilliseconds(40); // 25 FPS UI preview
+        _ledRefreshTimer.Interval = TimeSpan.FromMilliseconds(100); // 10 FPS UI preview (energy efficient)
         _ledRefreshTimer.Tick += OnLedRefreshTick;
 
         Loaded += OnPageLoaded;
@@ -179,10 +179,7 @@ public sealed partial class DashboardPage : Page
     {
         try
         {
-            if (!_coord.Engine.IsLightingEnabled) return;
-
-            double canvasWidth = SpatialSurface.ActualWidth > 0 ? SpatialSurface.ActualWidth : 800;
-            double canvasHeight = SpatialSurface.ActualHeight > 0 ? SpatialSurface.ActualHeight : 420;
+            if (!_coord.Engine.IsLightingEnabled || Visibility != Visibility.Visible) return;
 
             foreach (var (devId, (border, _)) in _deviceVisuals)
             {
@@ -192,7 +189,12 @@ public sealed partial class DashboardPage : Page
 
                 // Sample an average or center color to glow the border background
                 var midColor = dev.CurrentColors[dev.CurrentColors.Length / 2];
-                border.Background = new SolidColorBrush(Color.FromArgb(160, midColor.R, midColor.G, midColor.B));
+                var targetColor = Color.FromArgb(160, midColor.R, midColor.G, midColor.B);
+
+                if (border.Background is SolidColorBrush currentBrush && currentBrush.Color == targetColor)
+                    continue;
+
+                border.Background = new SolidColorBrush(targetColor);
             }
         }
         catch

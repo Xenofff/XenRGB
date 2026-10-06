@@ -13,6 +13,7 @@ class Program
     static void Main()
     {
         Trace.Listeners.Add(new ConsoleTraceListener());
+        XenRGB.Core.Engine.PowerEfficiencyHelper.EnableEcoQoS();
         var devices = HidDevices.Enumerate().ToList();
         var hxDev = devices.FirstOrDefault(d => d.Attributes.VendorId == 0x0951 && d.Attributes.ProductId == 0x16E6 && d.DevicePath.Contains("mi_02"));
         if (hxDev == null)
