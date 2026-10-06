@@ -24,9 +24,18 @@ public class DeviceContext
         _logAction?.Invoke(message.ToString());
     }
 
-    public void send_report(object[] packet, int length)
+    public void log(object message, object options)
     {
-        if (packet == null || length <= 0) return;
+        if (message == null) return;
+        _logAction?.Invoke(message.ToString());
+    }
+
+    public void send_report(object packetObj, int length)
+    {
+        if (packetObj == null || length <= 0) return;
+
+        // Try to handle JS array
+        var packet = packetObj as object[];
 
         // Convert the boxed JS array (double/int elements) to byte[]
         byte[] buffer = new byte[length];
@@ -45,16 +54,34 @@ public class DeviceContext
         _hidDevice.Write(buffer);
     }
 
-    public void write(object[] packet, int length)
+    public void write(object packetObj, int length)
     {
-        send_report(packet, length);
+        send_report(packetObj, length);
     }
+
+    public object[] read(object packetObj, int length)
+    {
+        // Stub: return a dummy array
+        object[] res = new object[length];
+        for (int i = 0; i < length; i++) res[i] = 0.0;
+        return res;
+    }
+
+    public object[] get_report(object packetObj, int length)
+    {
+        // Stub: return a dummy array
+        object[] res = new object[length];
+        for (int i = 0; i < length; i++) res[i] = 0.0;
+        return res;
+    }
+
+    public void clearReadBuffer() { }
+
+    public int getLastReadSize() { return 0; }
 
     public void pause(int ms)
     {
-        // Thread.Sleep(ms);
-        // Note: For XenRGB we might ignore pause or do it asynchronously if possible, 
-        // but for compatibility we'll let it block the JS thread (it's isolated anyway).
+        System.Threading.Thread.Sleep(ms);
     }
 
     // Colors mapping
@@ -82,6 +109,13 @@ public class DeviceContext
         return new int[] { 0, 0, 0 };
     }
 
+    public int[] color(int x, int y)
+    {
+        if (_currentColors.Length >= 3)
+            return new int[] { _currentColors[0], _currentColors[1], _currentColors[2] };
+        return new int[] { 0, 0, 0 };
+    }
+
     public void setSubdeviceName(string subdevice, string name)
     {
         // Stub for mapping
@@ -95,5 +129,29 @@ public class DeviceContext
     public void addProperty(string propertyJson)
     {
         // Stub
+    }
+
+    // Missing Stubs
+    public void SetLedLimit(int limit) { }
+    public void addChannel(object a, object b) { }
+    public void createSubdevice(string name) { }
+    public void setSubdeviceLeds(string name, object names, object positions) { }
+    public object channel(object ch) { return new ChannelStub(); }
+    public object createColorArray(object color, int count, string type) { return new object[count * 3]; }
+    public object getChannelPulseColor(object ch) { return new object[] {0.0, 0.0, 0.0}; }
+    public void removeSubdevice(string name) { }
+    public void setControllableLeds(object names, object positions) { }
+    public void setSize(object size) { }
+    public string productId() { return "0x" + _hidDevice.Attributes.ProductId.ToString("X4"); }
+
+    public class ChannelStub {
+        public int LedCount() { return 1; }
+        public object getColors(string type) { return new object[3]; }
+    }
+
+    public void notify(string title, string message, int severity)
+    {
+        // Dummy implementation to avoid JS errors
+        System.Diagnostics.Debug.WriteLine($"[JS Notify] {title}: {message}");
     }
 }

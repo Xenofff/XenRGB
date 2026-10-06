@@ -125,7 +125,7 @@ public sealed class AppCoordinator : IDisposable
         Engine.MasterBrightness = profile.MasterBrightness;
 
         // 5. Initialize real hardware providers (MockProvider is excluded from production startup)
-        WireProvider(OpenRgbProvider);
+        // WireProvider(OpenRgbProvider);
         WireProvider(WledProvider);
         WireProvider(NativeJsProvider);
 
@@ -140,20 +140,20 @@ public sealed class AppCoordinator : IDisposable
 
         if (ConfigService.Settings.AutoConnectOpenRgb)
         {
-            _ = TryConnectOpenRgbAsync();
+            // _ = TryConnectOpenRgbAsync();
         }
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await NativeJsProvider.InitializeAsync();
+                await NativeJsProvider.DiscoverDevicesAsync();
+            }
+            catch { }
+        });
+
         if (ConfigService.Settings.WledDeviceIps.Count > 0)
         {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await NativeJsProvider.InitializeAsync();
-                    await NativeJsProvider.DiscoverDevicesAsync();
-                }
-                catch { }
-            });
-
             _ = Task.Run(async () =>
             {
                 try

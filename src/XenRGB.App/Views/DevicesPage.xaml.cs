@@ -45,28 +45,18 @@ public sealed partial class DevicesPage : Page
 
     private void UpdateStatusBanner()
     {
-        var openRgb = _coord.OpenRgbProvider;
-        if (openRgb.IsConnected)
+        int devCount = _coord.AllDevices.Count;
+        if (devCount > 0)
         {
-            int devCount = openRgb.Devices.Count;
-            if (devCount > 0)
-            {
-                BackendStatusInfoBar.Severity = InfoBarSeverity.Success;
-                BackendStatusInfoBar.Title = "OpenRGB Connected";
-                BackendStatusInfoBar.Message = $"Connected to OpenRGB server at {openRgb.Host}:{openRgb.Port}. {devCount} device(s) active.";
-            }
-            else
-            {
-                BackendStatusInfoBar.Severity = InfoBarSeverity.Informational;
-                BackendStatusInfoBar.Title = "OpenRGB Connected (No Devices Found)";
-                BackendStatusInfoBar.Message = $"Connected to OpenRGB server at {openRgb.Host}:{openRgb.Port}, but OpenRGB reported 0 supported devices. Make sure your devices appear inside the OpenRGB desktop application.";
-            }
+            BackendStatusInfoBar.Severity = InfoBarSeverity.Success;
+            BackendStatusInfoBar.Title = "Devices Connected";
+            BackendStatusInfoBar.Message = $"{devCount} device(s) active via Native JS Plugins and WLED.";
         }
         else
         {
-            BackendStatusInfoBar.Severity = InfoBarSeverity.Warning;
-            BackendStatusInfoBar.Title = "OpenRGB Server Offline";
-            BackendStatusInfoBar.Message = $"OpenRGB server is not running at {openRgb.Host}:{openRgb.Port}. Launch OpenRGB and start the SDK Server (Settings -> OpenRGB Server -> Start Server), then click 'Scan Devices'.";
+            BackendStatusInfoBar.Severity = InfoBarSeverity.Informational;
+            BackendStatusInfoBar.Title = "No Devices Connected";
+            BackendStatusInfoBar.Message = "Searching for supported Native JS plugins or WLED devices...";
         }
     }
 
@@ -102,7 +92,7 @@ public sealed partial class DevicesPage : Page
 
         try
         {
-            await _coord.OpenRgbProvider.RescanAndDiscoverAsync();
+            await _coord.NativeJsProvider.DiscoverDevicesAsync();
             await _coord.WledProvider.DiscoverDevicesAsync();
             RefreshDevices();
         }

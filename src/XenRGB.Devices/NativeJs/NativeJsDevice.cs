@@ -13,13 +13,15 @@ namespace XenRGB.Devices.NativeJs;
 
 public class NativeJsDevice : IRgbDevice
 {
+    public string ProviderId => "native-js";
     public string Id { get; }
     public string Name { get; }
-    public RgbDeviceType Type { get; }
-    public IReadOnlyList<LedCoordinate> Leds { get; }
+    public RgbDeviceType DeviceType { get; }
+    public IReadOnlyList<LedCoordinate> LedCoordinates { get; }
 
     public DeviceConnectionState ConnectionState { get; set; } = DeviceConnectionState.Connected;
     public bool IsEnabled { get; set; } = true;
+    public float Brightness { get; set; } = 1.0f;
     public RgbColor[] CurrentColors { get; }
 
     public DeviceFrameThrottler Throttler { get; }
@@ -34,16 +36,16 @@ public class NativeJsDevice : IRgbDevice
     public NativeJsDevice(IHidDevice hidDevice, string scriptContent, string name, RgbDeviceType type, int ledCount)
     {
         _hidDevice = hidDevice;
-        Id = $"js-{hidDevice.VendorId:X4}-{hidDevice.ProductId:X4}-{hidDevice.DevicePath}";
+        Id = $"js-{hidDevice.Attributes.VendorId:X4}-{hidDevice.Attributes.ProductId:X4}-{hidDevice.DevicePath}";
         Name = name;
-        Type = type;
+        DeviceType = type;
 
         var coords = new List<LedCoordinate>();
         for (int i = 0; i < ledCount; i++)
         {
             coords.Add(new LedCoordinate(i, (float)i / Math.Max(1, ledCount - 1), 0.5f, $"LED {i + 1}"));
         }
-        Leds = coords;
+        LedCoordinates = coords;
         LedCount = ledCount;
         CurrentColors = new RgbColor[ledCount];
         _rgbBuffer = new byte[ledCount * 3];
@@ -56,6 +58,10 @@ public class NativeJsDevice : IRgbDevice
         _engine.SetValue("device", _context);
         _engine.SetValue("LightingMode", "");
         _engine.SetValue("forcedColor", "");
+        _engine.Execute("var systeminfo = { GetBiosInfo: function() { return 'MockBIOS'; }, GetMotherboardInfo: function() { return 'MockBoard'; } };");
+        _engine.Execute("var Assert = { fail: function() {}, softIsDefined: function() {} };");
+        _engine.Execute("var permissions = { setCallback: function() {}, permissions: function() { return { 'lighting': true }; } };");
+        _engine.Execute("var console = { log: function() {}, warn: function() {}, error: function() {}, info: function() {} };");
 
         // Execute the plugin script
         _engine.Execute(scriptContent);
@@ -118,5 +124,10 @@ public class NativeJsDevice : IRgbDevice
         TransmissionCount++;
 
         return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _hidDevice?.CloseDevice();
     }
 }

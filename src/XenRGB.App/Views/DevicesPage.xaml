@@ -14,7 +14,7 @@
             <Grid>
                 <StackPanel Spacing="4">
                     <TextBlock x:Uid="DevicesTitle" Text="Devices" Style="{ThemeResource TitleTextBlockStyle}" FontWeight="SemiBold" />
-                    <TextBlock Text="Manage your OpenRGB hardware, WLED strips, and simulated lighting devices."
+                    <TextBlock Text="Manage your Native JS Plugins hardware, WLED strips, and simulated lighting devices."
                                Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
 
@@ -47,7 +47,7 @@
                 <StackPanel HorizontalAlignment="Center" Spacing="12">
                     <FontIcon Glyph="&#xE7F4;" FontSize="40" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="No RGB Devices Detected" Style="{ThemeResource SubtitleTextBlockStyle}" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                    <TextBlock Text="XenRGB connects to the local OpenRGB SDK server to discover and control real hardware (keyboards, mice, RAM, motherboards, GPUs).&#x0a;&#x0a;To detect your hardware:&#x0a;1. Launch OpenRGB and start the SDK Server (Settings -> OpenRGB Server -> Start Server).&#x0a;2. Click 'Scan Devices' above to discover your devices.&#x0a;&#x0a;You can also click '+ Add WLED Device' to connect Wi-Fi light strips."
+                    <TextBlock Text="XenRGB connects to your hardware natively using SignalRGB JS plugins.&#x0a;&#x0a;To detect your hardware:&#x0a;1. Ensure no other RGB software (OpenRGB, SignalRGB, MSI Center, NGENUITY) is running in the background.&#x0a;2. Click 'Scan Devices' above to discover your devices natively.&#x0a;&#x0a;You can also click '+ Add WLED Device' to connect Wi-Fi light strips."
                                Style="{ThemeResource BodyTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                TextAlignment="Center"

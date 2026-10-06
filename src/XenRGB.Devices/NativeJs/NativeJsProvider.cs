@@ -25,7 +25,7 @@ public class NativeJsProvider : IDeviceProvider
 
     public NativeJsProvider()
     {
-        _pluginsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VortxEngine", "app-2.5.74", "Signal-x64", "Plugins");
+        _pluginsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NativeJs", "Plugins");
     }
 
     public void Dispose()
@@ -65,6 +65,7 @@ public class NativeJsProvider : IDeviceProvider
             code = code.Replace("export const ", "const ");
             code = code.Replace("export var ", "var ");
             code = code.Replace("export let ", "let ");
+            code = System.Text.RegularExpressions.Regex.Replace(code, @"^import\s+.*$", "", System.Text.RegularExpressions.RegexOptions.Multiline);
 
             try
             {
@@ -73,6 +74,10 @@ public class NativeJsProvider : IDeviceProvider
                 // Inject SignalRGB global variables
                 engine.SetValue("LightingMode", "");
                 engine.SetValue("forcedColor", "");
+                engine.Execute("var systeminfo = { GetBiosInfo: function() { return 'MockBIOS'; }, GetMotherboardInfo: function() { return 'MockBoard'; } };");
+                engine.Execute("var Assert = { fail: function() {}, softIsDefined: function() {} };");
+                engine.Execute("var permissions = { setCallback: function() {}, permissions: function() { return { 'lighting': true }; } };");
+                engine.Execute("var console = { log: function() {}, warn: function() {}, error: function() {}, info: function() {} };");
                 
                 engine.Execute(code);
 
@@ -84,38 +89,44 @@ public class NativeJsProvider : IDeviceProvider
                     continue; // Not a valid device plugin
 
                 int vid = 0;
-                if (vendorIdVal.IsNumber()) vid = (int)vendorIdVal.AsNumber();
-                else if (vendorIdVal.IsFunction()) vid = (int)engine.Invoke("VendorId").AsNumber();
+                try { vid = (int)vendorIdVal.AsNumber(); } catch { try { vid = (int)engine.Invoke("VendorId").AsNumber(); } catch { } }
 
-                // ProductId can be a single number or an array
                 var pids = new List<int>();
-                object pidResult = null;
-                if (productIdVal.IsNumber()) pidResult = productIdVal.AsNumber();
-                else if (productIdVal.IsFunction())
-                {
-                    var res = engine.Invoke("ProductId");
-                    if (res.IsNumber()) pids.Add((int)res.AsNumber());
-                    else if (res.IsArray())
-                    {
-                        var arr = res.AsArray();
-                        for (uint i = 0; i < arr.Length; i++)
+                try { pids.Add((int)productIdVal.AsNumber()); } catch { 
+                    try { 
+                        var res = engine.Invoke("ProductId");
+                        if (res.IsNumber()) pids.Add((int)res.AsNumber());
+                        else if (res.IsArray())
                         {
-                            pids.Add((int)arr.Get(i.ToString()).AsNumber());
+                            var arr = res.AsArray();
+                            for (uint i = 0; i < arr.Length; i++)
+                            {
+                                var val = arr.Get(i.ToString());
+                                if (val.IsNumber()) pids.Add((int)val.AsNumber());
+                                else if (val.IsString())
+                                {
+                                    string s = val.AsString();
+                                    if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                                        pids.Add(Convert.ToInt32(s, 16));
+                                    else if (int.TryParse(s, out int parsed))
+                                        pids.Add(parsed);
+                                }
+                            }
                         }
-                    }
+                    } catch { }
                 }
 
-                if (pids.Count == 0 && pidResult is double d)
-                    pids.Add((int)d);
-
                 string devName = "Unknown JS Device";
-                if (nameVal.IsString()) devName = nameVal.AsString();
-                else if (nameVal.IsFunction()) devName = engine.Invoke("Name").AsString();
+                try { devName = nameVal.AsString(); } catch { try { devName = engine.Invoke("Name").AsString(); } catch { } }
+                
+                System.Diagnostics.Debug.WriteLine($"[JS Provider] Parsed {Path.GetFileName(file)}: VID={vid:X4}, PIDs=[{string.Join(",", pids.Select(p => p.ToString("X4")))}], Name={devName}");
+
+                if (vid == 0 || pids.Count == 0) continue;
 
                 foreach (var pid in pids)
                 {
                     // Find matching HID device
-                    var match = hidDevices.FirstOrDefault(h => h.VendorId == vid && h.ProductId == pid);
+                    var match = hidDevices.FirstOrDefault(h => h.Attributes.VendorId == vid && h.Attributes.ProductId == pid);
                     if (match != null)
                     {
                         // Check if we already added it
@@ -124,30 +135,23 @@ public class NativeJsProvider : IDeviceProvider
 
                         // Retrieve LedNames to get the LED count
                         int ledCount = 1;
-                        var ledNamesVal = engine.GetValue("LedNames");
-                        if (ledNamesVal.IsFunction())
-                        {
+                        try {
                             var namesRes = engine.Invoke("LedNames");
-                            if (namesRes.IsArray())
-                            {
-                                ledCount = (int)namesRes.AsArray().Length;
-                            }
-                        }
+                            if (namesRes.IsArray()) ledCount = (int)namesRes.AsArray().Length;
+                        } catch { }
 
                         // Also check vLedNames array directly if it exists
                         if (ledCount == 1)
                         {
-                            var vLedNames = engine.GetValue("vLedNames");
-                            if (vLedNames.IsArray())
-                            {
-                                ledCount = (int)vLedNames.AsArray().Length;
-                            }
+                            try {
+                                var vLedNames = engine.GetValue("vLedNames");
+                                if (vLedNames.IsArray()) ledCount = (int)vLedNames.AsArray().Length;
+                            } catch { }
                         }
 
                         if (ledCount <= 0) ledCount = 1;
 
-                        RgbDeviceType type = RgbDeviceType.Unknown;
-                        if (devName.Contains("Motherboard", StringComparison.OrdinalIgnoreCase)) type = RgbDeviceType.Motherboard;
+                        RgbDeviceType type = RgbDeviceType.Motherboard;
                         if (devName.Contains("Keyboard", StringComparison.OrdinalIgnoreCase)) type = RgbDeviceType.Keyboard;
 
                         match.OpenDevice();
