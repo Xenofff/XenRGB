@@ -236,14 +236,16 @@ public sealed class AppCoordinator : IDisposable
                 {
                     AllDevices.Add(dev);
                     Engine.RegisterDevice(dev);
-                    if (Canvas.GetPlacement(dev.Id) == null)
+                    var currentPlacement = Canvas.GetPlacement(dev.Id);
+                    if (currentPlacement == null || (dev.DeviceType == RgbDeviceType.Keyboard && currentPlacement.Width < 0.3f))
                     {
                         Canvas.AddOrUpdatePlacement(CreateDefaultPlacement(dev));
                     }
                 }
                 else
                 {
-                    if (Canvas.GetPlacement(dev.Id) == null)
+                    var currentPlacement = Canvas.GetPlacement(dev.Id);
+                    if (currentPlacement == null || (dev.DeviceType == RgbDeviceType.Keyboard && currentPlacement.Width < 0.3f))
                     {
                         Canvas.AddOrUpdatePlacement(CreateDefaultPlacement(dev));
                     }
@@ -266,7 +268,8 @@ public sealed class AppCoordinator : IDisposable
                     Engine.RegisterDevice(e.Device);
 
                     // Ensure device has a default canvas placement if not already present
-                    if (Canvas.GetPlacement(e.Device.Id) == null)
+                    var currentPlacement = Canvas.GetPlacement(e.Device.Id);
+                    if (currentPlacement == null || (e.Device.DeviceType == RgbDeviceType.Keyboard && currentPlacement.Width < 0.3f))
                     {
                         var defaultPlacement = CreateDefaultPlacement(e.Device);
                         Canvas.AddOrUpdatePlacement(defaultPlacement);

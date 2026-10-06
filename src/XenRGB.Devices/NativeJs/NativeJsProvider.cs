@@ -166,8 +166,25 @@ public class NativeJsProvider : IDeviceProvider
 
                     if (match != null)
                     {
-                        RgbDeviceType type = RgbDeviceType.Motherboard;
-                        if (devName.Contains("Keyboard", StringComparison.OrdinalIgnoreCase)) type = RgbDeviceType.Keyboard;
+                        string jsDevType = "";
+                        try { jsDevType = engine.Invoke("DeviceType").AsString(); }
+                        catch { try { jsDevType = engine.GetValue("DeviceType").AsString(); } catch { } }
+
+                        RgbDeviceType type = jsDevType.ToLowerInvariant() switch
+                        {
+                            "keyboard" => RgbDeviceType.Keyboard,
+                            "mouse" => RgbDeviceType.Mouse,
+                            "mousepad" => RgbDeviceType.LedStrip,
+                            "motherboard" => RgbDeviceType.Motherboard,
+                            "gpu" => RgbDeviceType.Motherboard,
+                            "cooler" => RgbDeviceType.LedStrip,
+                            "lightbar" => RgbDeviceType.Lightbar,
+                            _ => (devName.Contains("Keyboard", StringComparison.OrdinalIgnoreCase) ||
+                                  devName.Contains("Alloy", StringComparison.OrdinalIgnoreCase) ||
+                                  devName.Contains("Origins", StringComparison.OrdinalIgnoreCase))
+                                 ? RgbDeviceType.Keyboard
+                                 : RgbDeviceType.Motherboard
+                        };
 
                         match.OpenDevice();
                         

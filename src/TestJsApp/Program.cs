@@ -43,43 +43,37 @@ class Program
 
         string path = @"e:\Projects\XenRGB\src\XenRGB.Devices\NativeJs\Plugins\HyperX\HyperX_Alloy_Origins_Core.js";
         string scriptContent = File.ReadAllText(path);
-        scriptContent = scriptContent.Replace("export function ", "function ");
-        scriptContent = scriptContent.Replace("export const ", "const ");
-        scriptContent = scriptContent.Replace("export var ", "var ");
-        scriptContent = scriptContent.Replace("export let ", "let ");
-        scriptContent = System.Text.RegularExpressions.Regex.Replace(scriptContent, @"^import\s+.*$", "", System.Text.RegularExpressions.RegexOptions.Multiline);
 
-        engine.Execute(scriptContent);
+        var device = new NativeJsDevice(hxDev, scriptContent, "HyperX Alloy Origins Core", XenRGB.Core.Devices.RgbDeviceType.Keyboard);
+        Console.WriteLine($"Created NativeJsDevice: Name={device.Name}, Type={device.DeviceType}, LedCount={device.LedCount}");
+        Console.WriteLine($"Sample coords: LED 0 (Esc)=({device.LedCoordinates[0].LocalX:F3}, {device.LedCoordinates[0].LocalY:F3})");
+        Console.WriteLine($"Sample coords: LED 16 (`)=({device.LedCoordinates[16].LocalX:F3}, {device.LedCoordinates[16].LocalY:F3})");
+        Console.WriteLine($"Sample coords: LED 33 (Tab)=({device.LedCoordinates[33].LocalX:F3}, {device.LedCoordinates[33].LocalY:F3})");
+        Console.WriteLine($"Sample coords: LED 50 (Caps)=({device.LedCoordinates[50].LocalX:F3}, {device.LedCoordinates[50].LocalY:F3})");
+        Console.WriteLine($"Sample coords: LED 64 (LShift)=({device.LedCoordinates[64].LocalX:F3}, {device.LedCoordinates[64].LocalY:F3})");
+        Console.WriteLine($"Sample coords: LED 79 (LCtrl)=({device.LedCoordinates[79].LocalX:F3}, {device.LedCoordinates[79].LocalY:F3})");
 
-        engine.Invoke("Initialize");
-        Console.WriteLine("HyperX Init SUCCESS!");
-
-        // Read layout
-        var namesVal = engine.Invoke("LedNames").AsArray();
-        var posVal = engine.Invoke("LedPositions").AsArray();
-        Console.WriteLine($"HyperX vLedNames count: {namesVal.Length}, vLedPositions count: {posVal.Length}");
-
-        var mappings = new List<(int x, int y, string name, int index)>();
-        byte[] testColors = new byte[(int)namesVal.Length * 3];
-
-        for (uint i = 0; i < namesVal.Length; i++)
+        var testColors = new XenRGB.SDK.RgbColor[device.LedCount];
+        for (int i = 0; i < testColors.Length; i++)
         {
-            string name = namesVal.Get(i.ToString()).AsString();
-            var pt = posVal.Get(i.ToString()).AsArray();
-            int x = (int)pt.Get("0").AsNumber();
-            int y = (int)pt.Get("1").AsNumber();
-            mappings.Add((x, y, name, (int)i));
-
-            // Set different colors for different keys (e.g. gradient across keys)
-            testColors[i * 3 + 0] = (byte)((i * 3) % 256); // R
-            testColors[i * 3 + 1] = (byte)((i * 7) % 256); // G
-            testColors[i * 3 + 2] = (byte)((i * 11) % 256); // B
+            testColors[i] = new XenRGB.SDK.RgbColor(255, 0, (byte)(i * 2));
         }
 
-        context.SetLedMapping(mappings);
-        context.UpdateColors(testColors);
+        device.UpdateLedsAsync(new ReadOnlyMemory<XenRGB.SDK.RgbColor>(testColors)).GetAwaiter().GetResult();
+        Console.WriteLine("NativeJsDevice Keyboard UpdateLedsAsync SUCCESS!");
 
-        engine.Invoke("Render");
-        Console.WriteLine("HyperX Render with per-key mapping SUCCESS!");
+        var msiDev = devices.FirstOrDefault(d => d.Attributes.VendorId == 0x1462 && d.Attributes.ProductId == 0x7D25);
+        if (msiDev != null)
+        {
+            msiDev.OpenDevice();
+            string msiPath = @"e:\Projects\XenRGB\src\XenRGB.Devices\NativeJs\Plugins\Msi\185 Byte Motherboard Controller\MSI_185Byte_Controller.js";
+            string msiScript = File.ReadAllText(msiPath);
+            var mbDevice = new NativeJsDevice(msiDev, msiScript, "MSI Pro Z690-A", XenRGB.Core.Devices.RgbDeviceType.Motherboard);
+            Console.WriteLine($"Created Motherboard NativeJsDevice: Name={mbDevice.Name}, Type={mbDevice.DeviceType}, LedCount={mbDevice.LedCount}");
+            var mbColors = new XenRGB.SDK.RgbColor[mbDevice.LedCount];
+            Array.Fill(mbColors, new XenRGB.SDK.RgbColor(0, 255, 200));
+            mbDevice.UpdateLedsAsync(new ReadOnlyMemory<XenRGB.SDK.RgbColor>(mbColors)).GetAwaiter().GetResult();
+            Console.WriteLine("NativeJsDevice Motherboard UpdateLedsAsync SUCCESS!");
+        }
     }
 }

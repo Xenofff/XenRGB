@@ -16,7 +16,7 @@ public class NativeJsDevice : IRgbDevice
     public string ProviderId => "native-js";
     public string Id { get; }
     public string Name { get; }
-    public RgbDeviceType DeviceType { get; }
+    public RgbDeviceType DeviceType { get; private set; }
     public IReadOnlyList<LedCoordinate> LedCoordinates { get; }
 
     public DeviceConnectionState ConnectionState { get; set; } = DeviceConnectionState.Connected;
@@ -54,8 +54,49 @@ public class NativeJsDevice : IRgbDevice
         _engine.Execute("var permissions = { setCallback: function() {}, permissions: function() { return { 'lighting': true }; } };");
         _engine.Execute("var console = { log: function() {}, warn: function() {}, error: function() {}, info: function() {} };");
 
+        // Strip 'export ' and other ES module syntax for Jint compatibility
+        string sanitizedScript = scriptContent
+            .Replace("export function ", "function ")
+            .Replace("export const ", "const ")
+            .Replace("export var ", "var ")
+            .Replace("export let ", "let ")
+            .Replace("export class ", "class ");
+        sanitizedScript = System.Text.RegularExpressions.Regex.Replace(sanitizedScript, @"^import\s+.*$", "", System.Text.RegularExpressions.RegexOptions.Multiline);
+
         // Execute the plugin script
-        _engine.Execute(scriptContent);
+        _engine.Execute(sanitizedScript);
+
+        // Detect device type from JS plugin
+        try
+        {
+            string dtStr = "";
+            try { dtStr = _engine.Invoke("DeviceType").AsString(); }
+            catch { try { dtStr = _engine.GetValue("DeviceType").AsString(); } catch { } }
+
+            if (!string.IsNullOrEmpty(dtStr))
+            {
+                DeviceType = dtStr.ToLowerInvariant() switch
+                {
+                    "keyboard" => RgbDeviceType.Keyboard,
+                    "mouse" => RgbDeviceType.Mouse,
+                    "mousepad" => RgbDeviceType.LedStrip,
+                    "motherboard" => RgbDeviceType.Motherboard,
+                    "gpu" => RgbDeviceType.Motherboard,
+                    "cooler" => RgbDeviceType.LedStrip,
+                    "lightbar" => RgbDeviceType.Lightbar,
+                    _ => DeviceType
+                };
+            }
+        }
+        catch { }
+
+        if (DeviceType == RgbDeviceType.Motherboard &&
+            (Name.Contains("Keyboard", StringComparison.OrdinalIgnoreCase) ||
+             Name.Contains("Alloy", StringComparison.OrdinalIgnoreCase) ||
+             Name.Contains("Origins", StringComparison.OrdinalIgnoreCase)))
+        {
+            DeviceType = RgbDeviceType.Keyboard;
+        }
 
         // Call Initialize if it exists
         try
