@@ -31,6 +31,8 @@ public partial class App : Application
     /// </summary>
     public App()
     {
+        XenRGB.Core.Engine.PowerEfficiencyHelper.EnableEcoQoS();
+
         UnhandledException += (sender, args) =>
         {
             try

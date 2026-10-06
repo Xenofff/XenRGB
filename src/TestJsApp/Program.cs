@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using HidLibrary;
@@ -11,6 +12,7 @@ class Program
 {
     static void Main()
     {
+        Trace.Listeners.Add(new ConsoleTraceListener());
         var devices = HidDevices.Enumerate().ToList();
         var hxDev = devices.FirstOrDefault(d => d.Attributes.VendorId == 0x0951 && d.Attributes.ProductId == 0x16E6 && d.DevicePath.Contains("mi_02"));
         if (hxDev == null)
@@ -70,10 +72,34 @@ class Program
             string msiScript = File.ReadAllText(msiPath);
             var mbDevice = new NativeJsDevice(msiDev, msiScript, "MSI Pro Z690-A", XenRGB.Core.Devices.RgbDeviceType.Motherboard);
             Console.WriteLine($"Created Motherboard NativeJsDevice: Name={mbDevice.Name}, Type={mbDevice.DeviceType}, LedCount={mbDevice.LedCount}");
+            Console.WriteLine($"Sample Fan 1 LED 0 (Top): ({mbDevice.LedCoordinates[6].LocalX:F3}, {mbDevice.LedCoordinates[6].LocalY:F3})");
+            Console.WriteLine($"Sample Fan 1 LED 3 (Right): ({mbDevice.LedCoordinates[9].LocalX:F3}, {mbDevice.LedCoordinates[9].LocalY:F3})");
+            Console.WriteLine($"Sample Fan 1 LED 6 (Bottom): ({mbDevice.LedCoordinates[12].LocalX:F3}, {mbDevice.LedCoordinates[12].LocalY:F3})");
+            Console.WriteLine($"Sample Fan 1 LED 9 (Left): ({mbDevice.LedCoordinates[15].LocalX:F3}, {mbDevice.LedCoordinates[15].LocalY:F3})");
             var mbColors = new XenRGB.SDK.RgbColor[mbDevice.LedCount];
-            Array.Fill(mbColors, new XenRGB.SDK.RgbColor(0, 255, 200));
+            // Onboard LEDs (0..5): Red
+            for (int i = 0; i < 6; i++) mbColors[i] = new XenRGB.SDK.RgbColor(255, 0, 0);
+
+            // ARGB Header 1 LEDs (6..65): Rainbow cycle across LEDs!
+            // E.g. LED 6 = Red, LED 7 = Orange, LED 8 = Yellow, LED 9 = Green, LED 10 = Cyan, LED 11 = Blue, LED 12 = Magenta...
+            for (int k = 0; k < 60; k++)
+            {
+                float hue = (float)(k % 12) / 12f * 360f;
+                mbColors[6 + k] = XenRGB.SDK.RgbColor.FromHsv(hue, 1f, 1f);
+            }
+
+            // ARGB Header 2 LEDs (66..125):
+            for (int k = 0; k < 60; k++)
+            {
+                float hue = (float)(k % 12) / 12f * 360f;
+                mbColors[66 + k] = XenRGB.SDK.RgbColor.FromHsv(hue, 1f, 1f);
+            }
+
+            // 12V RGB (126)
+            if (mbColors.Length > 126) mbColors[126] = new XenRGB.SDK.RgbColor(0, 0, 255);
+
             mbDevice.UpdateLedsAsync(new ReadOnlyMemory<XenRGB.SDK.RgbColor>(mbColors)).GetAwaiter().GetResult();
-            Console.WriteLine("NativeJsDevice Motherboard UpdateLedsAsync SUCCESS!");
+            Console.WriteLine("NativeJsDevice Motherboard UpdateLedsAsync with Per-LED Rainbow SUCCESS!");
         }
     }
 }

@@ -14,7 +14,7 @@ public class DeviceContext
     private readonly IHidDevice _hidDevice;
     private readonly Action<string> _logAction;
 
-    public Engine Engine { get; set; }
+    public Engine? Engine { get; set; }
 
     public DeviceContext(IHidDevice hidDevice, Action<string> logAction)
     {
@@ -66,6 +66,10 @@ public class DeviceContext
         byte[]? buffer = BuildBuffer(packetObj, length);
         if (buffer != null && _hidDevice != null)
         {
+            if (buffer.Length > 35 && buffer[0] == 0x53)
+            {
+                log($"send_report 0x53: ARGB0=({buffer[26]},{buffer[27]},{buffer[28]}), ARGB1=({buffer[29]},{buffer[30]},{buffer[31]}), ARGB2=({buffer[32]},{buffer[33]},{buffer[34]})");
+            }
             return _hidDevice.WriteFeatureData(buffer) ? length : -1;
         }
         return -1;

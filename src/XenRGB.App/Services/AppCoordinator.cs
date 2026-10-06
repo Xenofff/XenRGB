@@ -296,7 +296,7 @@ public sealed class AppCoordinator : IDisposable
         {
             RgbDeviceType.Keyboard => new CanvasDevicePlacement(device.Id, device.Name, 0.5f, 0.65f, 0.45f, 0.22f),
             RgbDeviceType.LedStrip => new CanvasDevicePlacement(device.Id, device.Name, 0.5f, 0.92f, 0.90f, 0.05f),
-            RgbDeviceType.Motherboard => new CanvasDevicePlacement(device.Id, device.Name, 0.80f, 0.35f, 0.20f, 0.25f),
+            RgbDeviceType.Motherboard => new CanvasDevicePlacement(device.Id, device.Name, 0.78f, 0.32f, 0.35f, 0.35f),
             RgbDeviceType.Mouse => new CanvasDevicePlacement(device.Id, device.Name, 0.80f, 0.65f, 0.12f, 0.15f),
             RgbDeviceType.Lightbar => new CanvasDevicePlacement(device.Id, device.Name, 0.5f, 0.10f, 0.60f, 0.06f),
             _ => new CanvasDevicePlacement(device.Id, device.Name, 0.5f, 0.5f, 0.25f, 0.15f)

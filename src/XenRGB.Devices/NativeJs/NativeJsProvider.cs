@@ -30,6 +30,11 @@ public class NativeJsProvider : IDeviceProvider
 
     public void Dispose()
     {
+        foreach (var dev in _devices)
+        {
+            DeviceRemoved?.Invoke(this, new DeviceEventArgs(dev));
+            dev.Dispose();
+        }
         _devices.Clear();
     }
 

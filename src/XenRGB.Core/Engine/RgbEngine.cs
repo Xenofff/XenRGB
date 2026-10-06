@@ -73,11 +73,13 @@ public sealed class RgbEngine : IDisposable
         if (_renderThread != null)
             return;
 
+        PowerEfficiencyHelper.EnableEcoQoS();
+
         _renderThread = new Thread(RenderLoop)
         {
             Name = "XenRGB.EngineLoop",
             IsBackground = true,
-            Priority = ThreadPriority.AboveNormal
+            Priority = ThreadPriority.Lowest
         };
         _renderThread.Start();
     }
@@ -229,12 +231,6 @@ public sealed class RgbEngine : IDisposable
         if (effect == null || devices.Length == 0 || masterBrightness <= 0.001f)
             return;
 
-        bool isDiagFrame = context.FrameIndex % 30 == 0;
-        if (isDiagFrame)
-        {
-            Console.WriteLine($"[DIAG] Render: effect={effect.GetType().Name}, devices={devices.Length}, totalLeds={System.Linq.Enumerable.Sum(devices, d => d.LedCount)}, frame={context.FrameIndex}");
-        }
-
         // Update effect animation state once per frame
         effect.Update(context);
 
@@ -268,18 +264,6 @@ public sealed class RgbEngine : IDisposable
                 colors[i] = deviceBrightness < 0.999f
                     ? rawColor.WithBrightness(deviceBrightness)
                     : rawColor;
-            }
-
-            if (isDiagFrame && count > 0)
-            {
-                var raw0 = effect.Evaluate(mappedLeds[0].CanvasPoint, context.TotalTime);
-                Console.WriteLine($"[DIAG] Evaluate sample: LED0=({raw0.R},{raw0.G},{raw0.B}), time={context.TotalTime}");
-                if (count > 43)
-                {
-                    var raw43 = effect.Evaluate(mappedLeds[43].CanvasPoint, context.TotalTime);
-                    Console.WriteLine($"[DIAG] Evaluate sample: LED43=({raw43.R},{raw43.G},{raw43.B})");
-                }
-                Console.WriteLine($"[DIAG] FrameBuffer: device={device.Name}, leds={count}, sample=({colors[0].R},{colors[0].G},{colors[0].B})");
             }
 
             // Push frame to device asynchronously using struct ReadOnlyMemory slice

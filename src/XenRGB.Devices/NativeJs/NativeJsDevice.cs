@@ -224,21 +224,68 @@ public class NativeJsDevice : IRgbDevice
 
             int currIdx = coords.Count;
 
-            // ARGB Header 1 (e.g. Cooler / JRainbow1) - 60 LEDs
+            // ARGB Header 1 (e.g. Cooler / Fan Hub on JRainbow1) - 60 LEDs
+            // Arranged as circular fan rings so individual LEDs around the fan circumference
+            // receive distinct 2D spatial colors, rather than being compressed into a single line.
+            const int ledsPerFan = 12;
             for (int k = 0; k < 60; k++)
             {
-                float normX = 0.35f + ((float)k / 60f) * 0.55f;
-                float normY = 0.25f;
-                coords.Add(new LedCoordinate(currIdx, normX, normY, $"ARGB 1 (Cooler) - LED {k + 1}"));
+                int fanIdx = k / ledsPerFan;
+                int ledInFan = k % ledsPerFan;
+                float angle = (float)(ledInFan * 2.0 * Math.PI / ledsPerFan - Math.PI / 2.0);
+
+                float centerX = fanIdx switch
+                {
+                    0 => 0.45f,
+                    1 => 0.80f,
+                    2 => 0.20f,
+                    3 => 0.50f,
+                    _ => 0.80f
+                };
+                float centerY = fanIdx switch
+                {
+                    0 => 0.40f,
+                    1 => 0.40f,
+                    2 => 0.75f,
+                    3 => 0.75f,
+                    _ => 0.75f
+                };
+                float radius = fanIdx == 0 ? 0.26f : 0.18f;
+
+                float normX = Math.Clamp(centerX + radius * MathF.Cos(angle), 0.02f, 0.98f);
+                float normY = Math.Clamp(centerY + radius * MathF.Sin(angle), 0.02f, 0.98f);
+
+                coords.Add(new LedCoordinate(currIdx, normX, normY, $"ARGB 1 (Fan {fanIdx + 1}) - LED {ledInFan + 1}"));
                 currIdx++;
             }
 
-            // ARGB Header 2 (e.g. Fans / JRainbow2) - 60 LEDs
+            // ARGB Header 2 (e.g. JRainbow2) - 60 LEDs
             for (int k = 0; k < 60; k++)
             {
-                float normX = 0.35f + ((float)k / 60f) * 0.55f;
-                float normY = 0.75f;
-                coords.Add(new LedCoordinate(currIdx, normX, normY, $"ARGB 2 (Fans) - LED {k + 1}"));
+                int fanIdx = k / ledsPerFan;
+                int ledInFan = k % ledsPerFan;
+                float angle = (float)(ledInFan * 2.0 * Math.PI / ledsPerFan - Math.PI / 2.0);
+
+                float centerX = fanIdx switch
+                {
+                    0 => 0.55f,
+                    1 => 0.25f,
+                    2 => 0.85f,
+                    _ => 0.55f
+                };
+                float centerY = fanIdx switch
+                {
+                    0 => 0.75f,
+                    1 => 0.75f,
+                    2 => 0.75f,
+                    _ => 0.75f
+                };
+                float radius = 0.18f;
+
+                float normX = Math.Clamp(centerX + radius * MathF.Cos(angle), 0.02f, 0.98f);
+                float normY = Math.Clamp(centerY + radius * MathF.Sin(angle), 0.02f, 0.98f);
+
+                coords.Add(new LedCoordinate(currIdx, normX, normY, $"ARGB 2 (Fan {fanIdx + 1}) - LED {ledInFan + 1}"));
                 currIdx++;
             }
 
@@ -301,6 +348,7 @@ public class NativeJsDevice : IRgbDevice
         _context.UpdateColors(_rgbBuffer);
 
         _renderFunc();
+        Throttler.MarkTransmitted(span);
         TransmissionCount++;
 
         return Task.CompletedTask;
