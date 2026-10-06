@@ -58,7 +58,7 @@ public class NativeJsDevice : IRgbDevice
         _engine.SetValue("device", _context);
         _engine.SetValue("LightingMode", "");
         _engine.SetValue("forcedColor", "");
-        _engine.Execute("var systeminfo = { GetBiosInfo: function() { return 'MockBIOS'; }, GetMotherboardInfo: function() { return 'MockBoard'; } };");
+        _engine.Execute("var systeminfo = { GetBiosInfo: function() { return { version: '1.0' }; }, GetMotherboardInfo: function() { return { model: 'Generic Motherboard', manufacturer: 'Generic' }; }, GetMotherboardName: function() { return 'Generic Motherboard'; } };");
         _engine.Execute("var Assert = { fail: function() {}, softIsDefined: function() {} };");
         _engine.Execute("var permissions = { setCallback: function() {}, permissions: function() { return { 'lighting': true }; } };");
         _engine.Execute("var console = { log: function() {}, warn: function() {}, error: function() {}, info: function() {} };");

@@ -30,37 +30,47 @@ public class DeviceContext
         _logAction?.Invoke(message.ToString());
     }
 
-    public void send_report(object packetObj, int length)
+    private byte[] BuildBuffer(object packetObj, int length)
     {
-        if (packetObj == null || length <= 0) return;
-
-        // Try to handle JS array
+        if (packetObj == null || length <= 0) return null;
         var packet = packetObj as object[];
+        if (packet == null) return null;
 
-        // Convert the boxed JS array (double/int elements) to byte[]
         byte[] buffer = new byte[length];
         for (int i = 0; i < length && i < packet.Length; i++)
         {
-            if (packet[i] is double d)
-                buffer[i] = (byte)d;
-            else if (packet[i] is IConvertible c)
-                buffer[i] = c.ToByte(null);
-            else
-                buffer[i] = 0;
+            if (packet[i] is double d) buffer[i] = (byte)d;
+            else if (packet[i] is IConvertible c) buffer[i] = c.ToByte(null);
+            else buffer[i] = 0;
         }
-
-        // HID report. Often needs a report ID at index 0. If length matches exactly, we just send it.
-        // SignalRGB usually formats the array with Report ID at index 0.
-        _hidDevice.Write(buffer);
+        return buffer;
     }
 
-    public void write(object packetObj, int length)
+    public int send_report(object packetObj, int length)
     {
-        send_report(packetObj, length);
+        byte[] buffer = BuildBuffer(packetObj, length);
+        if (buffer != null && _hidDevice != null)
+        {
+            return _hidDevice.WriteFeatureData(buffer) ? length : -1;
+        }
+        return -1;
+    }
+
+    private int _lastReadSize = 185; // Default to 185 for MSI
+
+    public int write(object packetObj, int length)
+    {
+        byte[] buffer = BuildBuffer(packetObj, length);
+        if (buffer != null && _hidDevice != null)
+        {
+            return _hidDevice.Write(buffer) ? length : -1;
+        }
+        return -1;
     }
 
     public object[] read(object packetObj, int length)
     {
+        _lastReadSize = length;
         // Stub: return a dummy array
         object[] res = new object[length];
         for (int i = 0; i < length; i++) res[i] = 0.0;
@@ -69,6 +79,9 @@ public class DeviceContext
 
     public object[] get_report(object packetObj, int length)
     {
+        // Many devices return less than requested, MSI 185 Byte Controller actually returns 185.
+        // Let's assume it returns what the device's feature report length is, or default to 185 if 200 was asked.
+        _lastReadSize = length == 200 ? 185 : length;
         // Stub: return a dummy array
         object[] res = new object[length];
         for (int i = 0; i < length; i++) res[i] = 0.0;
@@ -77,7 +90,7 @@ public class DeviceContext
 
     public void clearReadBuffer() { }
 
-    public int getLastReadSize() { return 0; }
+    public int getLastReadSize() { return _lastReadSize; }
 
     public void pause(int ms)
     {
@@ -132,6 +145,7 @@ public class DeviceContext
     }
 
     // Missing Stubs
+    public void setName(string name) { }
     public void SetLedLimit(int limit) { }
     public void addChannel(object a, object b) { }
     public void createSubdevice(string name) { }
