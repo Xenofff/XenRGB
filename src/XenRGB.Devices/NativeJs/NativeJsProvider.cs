@@ -69,11 +69,13 @@ public class NativeJsProvider : IDeviceProvider
 
             try
             {
-                var engine = new Engine();
+                var engine = new Engine(cfg => cfg.AllowClr());
                 
                 // Inject SignalRGB global variables
                 engine.SetValue("LightingMode", "");
                 engine.SetValue("forcedColor", "");
+                engine.SetValue("advancedMode", false);
+                engine.SetValue("shutdownColor", "#000000");
                 engine.Execute("var systeminfo = { GetBiosInfo: function() { return { version: '1.0' }; }, GetMotherboardInfo: function() { return { model: 'Generic Motherboard', manufacturer: 'Generic' }; }, GetMotherboardName: function() { return 'Generic Motherboard'; } };");
                 engine.Execute("var Assert = { fail: function() {}, softIsDefined: function() {} };");
                 engine.Execute("var permissions = { setCallback: function() {}, permissions: function() { return { 'lighting': true }; } };");
@@ -118,50 +120,63 @@ public class NativeJsProvider : IDeviceProvider
 
                 string devName = "Unknown JS Device";
                 try { devName = nameVal.AsString(); } catch { try { devName = engine.Invoke("Name").AsString(); } catch { } }
-                
-                System.Diagnostics.Debug.WriteLine($"[JS Provider] Parsed {Path.GetFileName(file)}: VID={vid:X4}, PIDs=[{string.Join(",", pids.Select(p => p.ToString("X4")))}], Name={devName}");
 
                 if (vid == 0 || pids.Count == 0) continue;
 
                 foreach (var pid in pids)
                 {
-                    // Find matching HID device
-                    var match = hidDevices.FirstOrDefault(h => h.Attributes.VendorId == vid && h.Attributes.ProductId == pid);
+                    // Find all matching HID devices with this VID & PID
+                    var candidates = hidDevices.Where(h => h.Attributes.VendorId == vid && h.Attributes.ProductId == pid).ToList();
+                    if (candidates.Count == 0) continue;
+
+                    // Check if already added
+                    if (_devices.Any(d => d.Id.Contains($"{vid:X4}-{pid:X4}")))
+                        continue;
+
+                    IHidDevice? match = null;
+                    var validateVal = engine.GetValue("Validate");
+                    if (!validateVal.IsUndefined())
+                    {
+                        foreach (var cand in candidates)
+                        {
+                            int iface = 0;
+                            var miMatch = System.Text.RegularExpressions.Regex.Match(cand.DevicePath, @"mi_([0-9a-fA-F]{2})");
+                            if (miMatch.Success)
+                            {
+                                iface = Convert.ToInt32(miMatch.Groups[1].Value, 16);
+                            }
+
+                            try
+                            {
+                                var res = engine.Invoke("Validate", new { @interface = iface });
+                                if (res.IsBoolean() && res.AsBoolean())
+                                {
+                                    match = cand;
+                                    break;
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+
+                    if (match == null)
+                    {
+                        match = candidates.FirstOrDefault();
+                    }
+
                     if (match != null)
                     {
-                        // Check if we already added it
-                        if (_devices.Any(d => d.Id.Contains($"{vid:X4}-{pid:X4}")))
-                            continue;
-
-                        // Retrieve LedNames to get the LED count
-                        int ledCount = 1;
-                        try {
-                            var namesRes = engine.Invoke("LedNames");
-                            if (namesRes.IsArray()) ledCount = (int)namesRes.AsArray().Length;
-                        } catch { }
-
-                        // Also check vLedNames array directly if it exists
-                        if (ledCount == 1)
-                        {
-                            try {
-                                var vLedNames = engine.GetValue("vLedNames");
-                                if (vLedNames.IsArray()) ledCount = (int)vLedNames.AsArray().Length;
-                            } catch { }
-                        }
-
-                        if (ledCount <= 0) ledCount = 1;
-
                         RgbDeviceType type = RgbDeviceType.Motherboard;
                         if (devName.Contains("Keyboard", StringComparison.OrdinalIgnoreCase)) type = RgbDeviceType.Keyboard;
 
                         match.OpenDevice();
                         
-                        var device = new NativeJsDevice(match, code, devName, type, ledCount);
+                        var device = new NativeJsDevice(match, code, devName, type);
                         discovered.Add(device);
                         _devices.Add(device);
 
                         DeviceDiscovered?.Invoke(this, new DeviceEventArgs(device));
-                        Debug.WriteLine($"[JS Provider] Discovered {devName} on {match.DevicePath}");
+                        Debug.WriteLine($"[JS Provider] Discovered {devName} (LEDs: {device.LedCount}) on {match.DevicePath}");
                     }
                 }
             }

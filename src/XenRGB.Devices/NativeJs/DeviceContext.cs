@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using HidLibrary;
 using Jint;
+using Jint.Native;
 
 namespace XenRGB.Devices.NativeJs;
 
@@ -11,6 +13,8 @@ public class DeviceContext
 {
     private readonly IHidDevice _hidDevice;
     private readonly Action<string> _logAction;
+
+    public Engine Engine { get; set; }
 
     public DeviceContext(IHidDevice hidDevice, Action<string> logAction)
     {
@@ -21,25 +25,36 @@ public class DeviceContext
     public void log(object message)
     {
         if (message == null) return;
-        _logAction?.Invoke(message.ToString());
+        _logAction?.Invoke(message.ToString() ?? "");
     }
 
     public void log(object message, object options)
     {
         if (message == null) return;
-        _logAction?.Invoke(message.ToString());
+        _logAction?.Invoke(message.ToString() ?? "");
     }
 
-    private byte[] BuildBuffer(object packetObj, int length)
+    private byte[]? BuildBuffer(object packetObj, int length)
     {
         if (packetObj == null || length <= 0) return null;
         var packet = packetObj as object[];
+        if (packet == null && packetObj is JsArray jsArr)
+        {
+            var list = new object[(int)jsArr.Length];
+            for (int i = 0; i < list.Length; i++)
+            {
+                var val = jsArr.Get(i.ToString());
+                list[i] = val.IsNumber() ? val.AsNumber() : 0.0;
+            }
+            packet = list;
+        }
         if (packet == null) return null;
 
         byte[] buffer = new byte[length];
         for (int i = 0; i < length && i < packet.Length; i++)
         {
             if (packet[i] is double d) buffer[i] = (byte)d;
+            else if (packet[i] is int val) buffer[i] = (byte)val;
             else if (packet[i] is IConvertible c) buffer[i] = c.ToByte(null);
             else buffer[i] = 0;
         }
@@ -48,7 +63,7 @@ public class DeviceContext
 
     public int send_report(object packetObj, int length)
     {
-        byte[] buffer = BuildBuffer(packetObj, length);
+        byte[]? buffer = BuildBuffer(packetObj, length);
         if (buffer != null && _hidDevice != null)
         {
             return _hidDevice.WriteFeatureData(buffer) ? length : -1;
@@ -60,7 +75,7 @@ public class DeviceContext
 
     public int write(object packetObj, int length)
     {
-        byte[] buffer = BuildBuffer(packetObj, length);
+        byte[]? buffer = BuildBuffer(packetObj, length);
         if (buffer != null && _hidDevice != null)
         {
             return _hidDevice.Write(buffer) ? length : -1;
@@ -71,7 +86,6 @@ public class DeviceContext
     public object[] read(object packetObj, int length)
     {
         _lastReadSize = length;
-        // Stub: return a dummy array
         object[] res = new object[length];
         for (int i = 0; i < length; i++) res[i] = 0.0;
         return res;
@@ -79,10 +93,7 @@ public class DeviceContext
 
     public object[] get_report(object packetObj, int length)
     {
-        // Many devices return less than requested, MSI 185 Byte Controller actually returns 185.
-        // Let's assume it returns what the device's feature report length is, or default to 185 if 200 was asked.
         _lastReadSize = length == 200 ? 185 : length;
-        // Stub: return a dummy array
         object[] res = new object[length];
         for (int i = 0; i < length; i++) res[i] = 0.0;
         return res;
@@ -94,11 +105,28 @@ public class DeviceContext
 
     public void pause(int ms)
     {
-        System.Threading.Thread.Sleep(ms);
+        Thread.Sleep(ms);
     }
 
-    // Colors mapping
+    // Colors & LED Mapping
     private byte[] _currentColors = Array.Empty<byte>(); // Format: R,G,B for each LED
+    private readonly Dictionary<(int x, int y), int> _xyToLedIndex = new();
+    private readonly Dictionary<string, int> _nameToLedIndex = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _subdeviceToLedIndex = new(StringComparer.OrdinalIgnoreCase);
+
+    public void SetLedMapping(IEnumerable<(int x, int y, string name, int index)> leds)
+    {
+        _xyToLedIndex.Clear();
+        _nameToLedIndex.Clear();
+        foreach (var led in leds)
+        {
+            _xyToLedIndex[(led.x, led.y)] = led.index;
+            if (!string.IsNullOrEmpty(led.name))
+            {
+                _nameToLedIndex[led.name] = led.index;
+            }
+        }
+    }
 
     public void UpdateColors(byte[] rgbBuffer)
     {
@@ -107,9 +135,15 @@ public class DeviceContext
 
     public int[] subdeviceColor(string subdeviceName, int row, int col)
     {
-        // Stub: In SignalRGB, this gets the color assigned to a specific LED/zone.
-        // For XenRGB MVP, we just return a mapping or dummy color, or the single mapped color.
-        // We will implement real mapping later.
+        if (!string.IsNullOrEmpty(subdeviceName) && _subdeviceToLedIndex.TryGetValue(subdeviceName, out int ledIdx))
+        {
+            int offset = ledIdx * 3;
+            if (offset + 2 < _currentColors.Length)
+            {
+                return new int[] { _currentColors[offset], _currentColors[offset + 1], _currentColors[offset + 2] };
+            }
+        }
+
         if (_currentColors.Length >= 3)
             return new int[] { _currentColors[0], _currentColors[1], _currentColors[2] };
         return new int[] { 0, 0, 0 };
@@ -117,6 +151,15 @@ public class DeviceContext
 
     public int[] color(string ledName)
     {
+        if (!string.IsNullOrEmpty(ledName) && _nameToLedIndex.TryGetValue(ledName, out int ledIdx))
+        {
+            int offset = ledIdx * 3;
+            if (offset + 2 < _currentColors.Length)
+            {
+                return new int[] { _currentColors[offset], _currentColors[offset + 1], _currentColors[offset + 2] };
+            }
+        }
+
         if (_currentColors.Length >= 3)
             return new int[] { _currentColors[0], _currentColors[1], _currentColors[2] };
         return new int[] { 0, 0, 0 };
@@ -124,48 +167,115 @@ public class DeviceContext
 
     public int[] color(int x, int y)
     {
+        if (_xyToLedIndex.TryGetValue((x, y), out int ledIdx))
+        {
+            int offset = ledIdx * 3;
+            if (offset + 2 < _currentColors.Length)
+            {
+                return new int[] { _currentColors[offset], _currentColors[offset + 1], _currentColors[offset + 2] };
+            }
+        }
+
         if (_currentColors.Length >= 3)
             return new int[] { _currentColors[0], _currentColors[1], _currentColors[2] };
         return new int[] { 0, 0, 0 };
     }
 
-    public void setSubdeviceName(string subdevice, string name)
-    {
-        // Stub for mapping
-    }
+    public void setSubdeviceName(string subdevice, string name) { }
 
-    public void setSubdeviceSize(string subdevice, int width, int height)
-    {
-        // Stub for mapping
-    }
+    public void setSubdeviceSize(string subdevice, int width, int height) { }
 
-    public void addProperty(string propertyJson)
-    {
-        // Stub
-    }
+    public void addProperty(string propertyJson) { }
 
-    // Missing Stubs
     public void setName(string name) { }
     public void SetLedLimit(int limit) { }
     public void addChannel(object a, object b) { }
-    public void createSubdevice(string name) { }
+
+    public void createSubdevice(string name)
+    {
+        if (!string.IsNullOrEmpty(name) && !_subdeviceToLedIndex.ContainsKey(name))
+        {
+            _subdeviceToLedIndex[name] = _subdeviceToLedIndex.Count;
+        }
+    }
+
     public void setSubdeviceLeds(string name, object names, object positions) { }
-    public object channel(object ch) { return new ChannelStub(); }
-    public object createColorArray(object color, int count, string type) { return new object[count * 3]; }
-    public object getChannelPulseColor(object ch) { return new object[] {0.0, 0.0, 0.0}; }
+    
+    public object channel(object ch)
+    {
+        return new ChannelStub(this);
+    }
+
+    public JsArray createColorArray(object color, int count, string type)
+    {
+        var arr = Engine != null ? new JsArray(Engine) : new JsArray(new Engine());
+        int r = 0, g = 0, b = 0;
+        if (color is string hex && hex.Length >= 7 && hex.StartsWith("#"))
+        {
+            try
+            {
+                r = Convert.ToInt32(hex.Substring(1, 2), 16);
+                g = Convert.ToInt32(hex.Substring(3, 2), 16);
+                b = Convert.ToInt32(hex.Substring(5, 2), 16);
+            }
+            catch { }
+        }
+        else if (color is object[] rgb && rgb.Length >= 3)
+        {
+            r = Convert.ToInt32(rgb[0]);
+            g = Convert.ToInt32(rgb[1]);
+            b = Convert.ToInt32(rgb[2]);
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            arr.Push(r);
+            arr.Push(g);
+            arr.Push(b);
+        }
+        return arr;
+    }
+
+    public object getChannelPulseColor(object ch) { return new object[] { 0.0, 0.0, 0.0 }; }
     public void removeSubdevice(string name) { }
     public void setControllableLeds(object names, object positions) { }
     public void setSize(object size) { }
-    public string productId() { return "0x" + _hidDevice.Attributes.ProductId.ToString("X4"); }
 
-    public class ChannelStub {
-        public int LedCount() { return 1; }
-        public object getColors(string type) { return new object[3]; }
+    public int productId() { return _hidDevice != null ? (int)_hidDevice.Attributes.ProductId : 0; }
+    public int vendorId() { return _hidDevice != null ? (int)_hidDevice.Attributes.VendorId : 0; }
+
+    public class ChannelStub
+    {
+        private readonly DeviceContext _context;
+        public ChannelStub(DeviceContext context)
+        {
+            _context = context;
+        }
+
+        public int LedCount() => 1;
+        public bool shouldPulseColors() => false;
+
+        public JsArray getColors(string type)
+        {
+            var arr = _context.Engine != null ? new JsArray(_context.Engine) : new JsArray(new Engine());
+            if (_context._currentColors.Length >= 3)
+            {
+                arr.Push((int)_context._currentColors[0]);
+                arr.Push((int)_context._currentColors[1]);
+                arr.Push((int)_context._currentColors[2]);
+            }
+            else
+            {
+                arr.Push(0);
+                arr.Push(0);
+                arr.Push(0);
+            }
+            return arr;
+        }
     }
 
     public void notify(string title, string message, int severity)
     {
-        // Dummy implementation to avoid JS errors
-        System.Diagnostics.Debug.WriteLine($"[JS Notify] {title}: {message}");
+        Debug.WriteLine($"[JS Notify] {title}: {message}");
     }
 }

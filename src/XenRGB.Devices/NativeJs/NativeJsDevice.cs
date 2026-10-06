@@ -33,31 +33,22 @@ public class NativeJsDevice : IRgbDevice
     private readonly byte[] _rgbBuffer;
     private readonly Action _renderFunc;
 
-    public NativeJsDevice(IHidDevice hidDevice, string scriptContent, string name, RgbDeviceType type, int ledCount)
+    public NativeJsDevice(IHidDevice hidDevice, string scriptContent, string name, RgbDeviceType type)
     {
         _hidDevice = hidDevice;
         Id = $"js-{hidDevice.Attributes.VendorId:X4}-{hidDevice.Attributes.ProductId:X4}-{hidDevice.DevicePath}";
         Name = name;
         DeviceType = type;
 
-        var coords = new List<LedCoordinate>();
-        for (int i = 0; i < ledCount; i++)
-        {
-            coords.Add(new LedCoordinate(i, (float)i / Math.Max(1, ledCount - 1), 0.5f, $"LED {i + 1}"));
-        }
-        LedCoordinates = coords;
-        LedCount = ledCount;
-        CurrentColors = new RgbColor[ledCount];
-        _rgbBuffer = new byte[ledCount * 3];
-
-        Throttler = new DeviceFrameThrottler(TimeSpan.FromMilliseconds(1000.0 / 30.0));
-
         _context = new DeviceContext(hidDevice, msg => Debug.WriteLine($"[JS {Name}] {msg}"));
-        
         _engine = new Engine(cfg => cfg.AllowClr());
+        _context.Engine = _engine;
+
         _engine.SetValue("device", _context);
         _engine.SetValue("LightingMode", "");
         _engine.SetValue("forcedColor", "");
+        _engine.SetValue("advancedMode", false);
+        _engine.SetValue("shutdownColor", "#000000");
         _engine.Execute("var systeminfo = { GetBiosInfo: function() { return { version: '1.0' }; }, GetMotherboardInfo: function() { return { model: 'Generic Motherboard', manufacturer: 'Generic' }; }, GetMotherboardName: function() { return 'Generic Motherboard'; } };");
         _engine.Execute("var Assert = { fail: function() {}, softIsDefined: function() {} };");
         _engine.Execute("var permissions = { setCallback: function() {}, permissions: function() { return { 'lighting': true }; } };");
@@ -65,19 +56,6 @@ public class NativeJsDevice : IRgbDevice
 
         // Execute the plugin script
         _engine.Execute(scriptContent);
-
-        // Try to bind Render function
-        _renderFunc = () =>
-        {
-            try
-            {
-                _engine.Invoke("Render");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[JS Error] {ex.Message}");
-            }
-        };
 
         // Call Initialize if it exists
         try
@@ -90,8 +68,125 @@ public class NativeJsDevice : IRgbDevice
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[JS Init Error] {ex.Message}");
+            Debug.WriteLine($"[JS Init Error {Name}] {ex.Message}");
         }
+
+        // Try to bind Render function
+        _renderFunc = () =>
+        {
+            try
+            {
+                _engine.Invoke("Render");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[JS Render Error {Name}] {ex.Message}");
+            }
+        };
+
+        // Query LED Layout after script initialization
+        var names = new List<string>();
+        try
+        {
+            var res = _engine.Invoke("LedNames");
+            if (res.IsArray())
+            {
+                var arr = res.AsArray();
+                for (uint i = 0; i < arr.Length; i++)
+                    names.Add(arr.Get(i.ToString()).AsString());
+            }
+        }
+        catch
+        {
+            try
+            {
+                var vLedNames = _engine.GetValue("vLedNames");
+                if (vLedNames.IsArray())
+                {
+                    var arr = vLedNames.AsArray();
+                    for (uint i = 0; i < arr.Length; i++)
+                        names.Add(arr.Get(i.ToString()).AsString());
+                }
+            }
+            catch { }
+        }
+
+        var positions = new List<(int x, int y)>();
+        try
+        {
+            var res = _engine.Invoke("LedPositions");
+            if (res.IsArray())
+            {
+                var arr = res.AsArray();
+                for (uint i = 0; i < arr.Length; i++)
+                {
+                    var pt = arr.Get(i.ToString()).AsArray();
+                    int px = (int)pt.Get("0").AsNumber();
+                    int py = (int)pt.Get("1").AsNumber();
+                    positions.Add((px, py));
+                }
+            }
+        }
+        catch
+        {
+            try
+            {
+                var vLedPositions = _engine.GetValue("vLedPositions");
+                if (vLedPositions.IsArray())
+                {
+                    var arr = vLedPositions.AsArray();
+                    for (uint i = 0; i < arr.Length; i++)
+                    {
+                        var pt = arr.Get(i.ToString()).AsArray();
+                        int px = (int)pt.Get("0").AsNumber();
+                        int py = (int)pt.Get("1").AsNumber();
+                        positions.Add((px, py));
+                    }
+                }
+            }
+            catch { }
+        }
+
+        int width = 1, height = 1;
+        try
+        {
+            var szRes = _engine.Invoke("Size");
+            if (szRes.IsArray())
+            {
+                var arr = szRes.AsArray();
+                width = Math.Max(1, (int)arr.Get("0").AsNumber());
+                height = Math.Max(1, (int)arr.Get("1").AsNumber());
+            }
+        }
+        catch { }
+
+        int totalLeds = Math.Max(names.Count, positions.Count);
+        if (totalLeds == 0) totalLeds = 1;
+
+        var coords = new List<LedCoordinate>();
+        var mappings = new List<(int x, int y, string name, int index)>();
+
+        for (int i = 0; i < totalLeds; i++)
+        {
+            string ledName = i < names.Count ? names[i] : $"LED {i + 1}";
+            int px = i < positions.Count ? positions[i].x : i;
+            int py = i < positions.Count ? positions[i].y : 0;
+
+            float normX = width > 1 ? (float)px / (width - 1) : 0.5f;
+            float normY = height > 1 ? (float)py / (height - 1) : 0.5f;
+
+            coords.Add(new LedCoordinate(i, normX, normY, ledName));
+            mappings.Add((px, py, ledName, i));
+        }
+
+        LedCoordinates = coords;
+        LedCount = totalLeds;
+        CurrentColors = new RgbColor[totalLeds];
+        _rgbBuffer = new byte[totalLeds * 3];
+
+        _context.SetLedMapping(mappings);
+
+        Throttler = new DeviceFrameThrottler(TimeSpan.FromMilliseconds(1000.0 / 30.0));
     }
 
     public int LedCount { get; }
@@ -119,7 +214,6 @@ public class NativeJsDevice : IRgbDevice
 
         _context.UpdateColors(_rgbBuffer);
 
-        // Run Render in background or wait? Wait is fine for now since it's just HID write
         _renderFunc();
         TransmissionCount++;
 
