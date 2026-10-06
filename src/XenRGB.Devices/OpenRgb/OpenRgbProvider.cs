@@ -467,9 +467,15 @@ public sealed class OpenRgbProvider : IDeviceProvider
             // Modes
             ushort modeCount = reader.ReadUInt16();
             int activeMode = reader.ReadInt32();
+            int directModeIndex = -1;
             for (int m = 0; m < modeCount; m++)
             {
-                SkipModeData(reader, protocolVersion);
+                string modeName = SkipModeData(reader, protocolVersion);
+                if (modeName.Equals("Direct", StringComparison.OrdinalIgnoreCase) || 
+                    modeName.Equals("Custom", StringComparison.OrdinalIgnoreCase))
+                {
+                    directModeIndex = m;
+                }
             }
 
             // Zones
@@ -644,9 +650,9 @@ public sealed class OpenRgbProvider : IDeviceProvider
     ///   colors_min, colors_max, speed (uint32), brightness (uint32, v3+),
     ///   direction, color_mode (uint32), num_colors (uint16), colors (4*N bytes)
     /// </summary>
-    private static void SkipModeData(BinaryReader reader, uint protocolVersion)
+    private static string SkipModeData(BinaryReader reader, uint protocolVersion)
     {
-        ReadLengthPrefixedString(reader); // mode name
+        string modeName = ReadLengthPrefixedString(reader); // mode name
         if (protocolVersion < 6) reader.ReadInt32(); // mode_value (removed in v6)
         reader.ReadUInt32(); // mode_flags
         reader.ReadUInt32(); // speed_min
@@ -670,6 +676,7 @@ public sealed class OpenRgbProvider : IDeviceProvider
         {
             reader.ReadBytes(numModeColors * 4); // mode colors
         }
+        return modeName;
     }
 
     private static string ReadLengthPrefixedString(BinaryReader reader)

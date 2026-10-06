@@ -17,6 +17,7 @@ public interface IOpenRgbClient : IDisposable
     Task<byte[]> GetControllerDataRawAsync(uint controllerIndex, CancellationToken ct = default);
     Task SendUpdateLedsAsync(uint controllerIndex, ReadOnlyMemory<uint> bgrColors, CancellationToken ct = default);
     Task ResizeZoneAsync(uint controllerIndex, int zoneIndex, int newSize, CancellationToken ct = default);
+    Task SetCustomModeAsync(uint controllerIndex, CancellationToken ct = default);
     Task RequestRescanAsync(CancellationToken ct = default) => Task.CompletedTask;
     Task DrainPushPacketsAsync(CancellationToken ct, int maxWaitMs);
     void Disconnect();

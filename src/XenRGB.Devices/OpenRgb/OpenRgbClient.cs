@@ -47,6 +47,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
     public const uint CommandSetServerFlags = 53;
     public const uint CommandRequestRescanDevices = 140;
     public const uint CommandResizeZone = 1000;
+    public const uint CommandSetCustomMode = 1100;
     public const uint CommandUpdateLeds = 1050;
 
     // Push-packet IDs the server can send without a prior client request.
@@ -462,6 +463,27 @@ public sealed class OpenRgbClient : IOpenRgbClient
                 devId,
                 CommandResizeZone,
                 payload,
+                ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public async Task SetCustomModeAsync(uint controllerIndex, CancellationToken ct = default)
+    {
+        if (!await TryAcquireLockAsync(_writeLock, ct).ConfigureAwait(false))
+            return;
+
+        try
+        {
+            uint devId = GetDeviceId(controllerIndex);
+            
+            await SendRawAsync(
+                devId,
+                CommandSetCustomMode,
+                Array.Empty<byte>(),
                 ct).ConfigureAwait(false);
         }
         finally

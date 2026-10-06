@@ -46,6 +46,7 @@ public sealed class AppCoordinator : IDisposable
     public MockDeviceProvider MockProvider { get; }
     public OpenRgbProvider OpenRgbProvider { get; }
     public WledProvider WledProvider { get; }
+    public XenRGB.Devices.NativeJs.NativeJsProvider NativeJsProvider { get; }
 
     public List<IRgbDevice> AllDevices { get; } = new();
 
@@ -69,6 +70,7 @@ public sealed class AppCoordinator : IDisposable
         MockProvider = new MockDeviceProvider();
         OpenRgbProvider = new OpenRgbProvider(ConfigService.Settings.OpenRgbHost, ConfigService.Settings.OpenRgbPort);
         WledProvider = new WledProvider(ConfigService.Settings.WledDeviceIps);
+        NativeJsProvider = new XenRGB.Devices.NativeJs.NativeJsProvider();
 
         // Wire automation state changes to RGB engine
         Automation.LightingStateChanged += (s, active) =>
@@ -125,6 +127,7 @@ public sealed class AppCoordinator : IDisposable
         // 5. Initialize real hardware providers (MockProvider is excluded from production startup)
         WireProvider(OpenRgbProvider);
         WireProvider(WledProvider);
+        WireProvider(NativeJsProvider);
 
         OpenRgbProvider.DevicesUpdated += (s, e) =>
         {
@@ -141,6 +144,16 @@ public sealed class AppCoordinator : IDisposable
         }
         if (ConfigService.Settings.WledDeviceIps.Count > 0)
         {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await NativeJsProvider.InitializeAsync();
+                    await NativeJsProvider.DiscoverDevicesAsync();
+                }
+                catch { }
+            });
+
             _ = Task.Run(async () =>
             {
                 try
@@ -319,5 +332,6 @@ public sealed class AppCoordinator : IDisposable
         MockProvider.Dispose();
         OpenRgbProvider.Dispose();
         WledProvider.Dispose();
+        NativeJsProvider.Dispose();
     }
 }
