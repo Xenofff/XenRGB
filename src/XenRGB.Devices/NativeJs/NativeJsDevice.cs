@@ -166,17 +166,62 @@ public class NativeJsDevice : IRgbDevice
         var coords = new List<LedCoordinate>();
         var mappings = new List<(int x, int y, string name, int index)>();
 
-        for (int i = 0; i < totalLeds; i++)
+        if (DeviceType == RgbDeviceType.Motherboard)
         {
-            string ledName = i < names.Count ? names[i] : $"LED {i + 1}";
-            int px = i < positions.Count ? positions[i].x : i;
-            int py = i < positions.Count ? positions[i].y : 0;
+            // Onboard LEDs (e.g. 6 LEDs on Pro Z690-A)
+            for (int i = 0; i < totalLeds; i++)
+            {
+                string ledName = i < names.Count ? names[i] : $"Onboard LED {i + 1}";
+                int px = i < positions.Count ? positions[i].x : i;
+                int py = i < positions.Count ? positions[i].y : 0;
+                float normX = 0.1f + (float)i * 0.04f;
+                float normY = 0.5f;
 
-            float normX = width > 1 ? (float)px / (width - 1) : 0.5f;
-            float normY = height > 1 ? (float)py / (height - 1) : 0.5f;
+                coords.Add(new LedCoordinate(i, normX, normY, ledName));
+                mappings.Add((px, py, ledName, i));
+            }
 
-            coords.Add(new LedCoordinate(i, normX, normY, ledName));
-            mappings.Add((px, py, ledName, i));
+            int currIdx = coords.Count;
+
+            // ARGB Header 1 (e.g. Cooler / JRainbow1) - 60 LEDs
+            for (int k = 0; k < 60; k++)
+            {
+                float normX = 0.35f + ((float)k / 60f) * 0.55f;
+                float normY = 0.25f;
+                coords.Add(new LedCoordinate(currIdx, normX, normY, $"ARGB 1 (Cooler) - LED {k + 1}"));
+                currIdx++;
+            }
+
+            // ARGB Header 2 (e.g. Fans / JRainbow2) - 60 LEDs
+            for (int k = 0; k < 60; k++)
+            {
+                float normX = 0.35f + ((float)k / 60f) * 0.55f;
+                float normY = 0.75f;
+                coords.Add(new LedCoordinate(currIdx, normX, normY, $"ARGB 2 (Fans) - LED {k + 1}"));
+                currIdx++;
+            }
+
+            // 12V RGB Header
+            coords.Add(new LedCoordinate(currIdx, 0.1f, 0.8f, "12V RGB Header"));
+            currIdx++;
+
+            totalLeds = currIdx;
+        }
+        else
+        {
+            // Direct matrix devices (Keyboards, etc.)
+            for (int i = 0; i < totalLeds; i++)
+            {
+                string ledName = i < names.Count ? names[i] : $"LED {i + 1}";
+                int px = i < positions.Count ? positions[i].x : i;
+                int py = i < positions.Count ? positions[i].y : 0;
+
+                float normX = width > 1 ? (float)px / (width - 1) : 0.5f;
+                float normY = height > 1 ? (float)py / (height - 1) : 0.5f;
+
+                coords.Add(new LedCoordinate(i, normX, normY, ledName));
+                mappings.Add((px, py, ledName, i));
+            }
         }
 
         LedCoordinates = coords;

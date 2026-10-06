@@ -88,6 +88,7 @@ public class DeviceContext
         _lastReadSize = length;
         object[] res = new object[length];
         for (int i = 0; i < length; i++) res[i] = 0.0;
+        if (length > 6) res[6] = 1.0; // EZ LED enabled
         return res;
     }
 
@@ -189,7 +190,19 @@ public class DeviceContext
 
     public void setName(string name) { }
     public void SetLedLimit(int limit) { }
-    public void addChannel(object a, object b) { }
+    public void addChannel(object a, object b)
+    {
+        string channelName = a?.ToString() ?? "";
+        int count = 60;
+        if (b is int c) count = c;
+        else if (b is double d) count = (int)d;
+        else if (int.TryParse(b?.ToString(), out int parsed)) count = parsed;
+
+        int channelLeds = Math.Min(60, Math.Max(40, count));
+        _channels[channelName] = new ChannelStub(this, channelName, channelLeds);
+    }
+
+    private readonly Dictionary<string, ChannelStub> _channels = new(StringComparer.OrdinalIgnoreCase);
 
     public void createSubdevice(string name)
     {
@@ -203,7 +216,22 @@ public class DeviceContext
     
     public object channel(object ch)
     {
-        return new ChannelStub(this);
+        string name = ch?.ToString() ?? "";
+        if (_channels.TryGetValue(name, out var existing))
+            return existing;
+
+        var stub = new ChannelStub(this, name, 60);
+        _channels[name] = stub;
+        return stub;
+    }
+
+    public int GetChannelLedOffset(string name)
+    {
+        if (name.Contains("2") || name.Contains("JRainbow2", StringComparison.OrdinalIgnoreCase))
+            return 66; // Header 2 starts after 6 onboard + 60 header 1 LEDs
+
+        // Default: Header 1 starts at 6 (after 6 onboard LEDs)
+        return 6;
     }
 
     public JsArray createColorArray(object color, int count, string type)
@@ -247,28 +275,45 @@ public class DeviceContext
     public class ChannelStub
     {
         private readonly DeviceContext _context;
-        public ChannelStub(DeviceContext context)
+        private readonly string _name;
+        private readonly int _ledCount;
+
+        public ChannelStub(DeviceContext context, string name, int ledCount = 60)
         {
             _context = context;
+            _name = name;
+            _ledCount = ledCount;
         }
 
-        public int LedCount() => 1;
+        public int LedCount() => _ledCount;
         public bool shouldPulseColors() => false;
 
         public JsArray getColors(string type)
         {
             var arr = _context.Engine != null ? new JsArray(_context.Engine) : new JsArray(new Engine());
-            if (_context._currentColors.Length >= 3)
+            int offset = _context.GetChannelLedOffset(_name);
+
+            for (int i = 0; i < _ledCount; i++)
             {
-                arr.Push((int)_context._currentColors[0]);
-                arr.Push((int)_context._currentColors[1]);
-                arr.Push((int)_context._currentColors[2]);
-            }
-            else
-            {
-                arr.Push(0);
-                arr.Push(0);
-                arr.Push(0);
+                int byteIdx = (offset + i) * 3;
+                if (byteIdx + 2 < _context._currentColors.Length)
+                {
+                    arr.Push((int)_context._currentColors[byteIdx]);
+                    arr.Push((int)_context._currentColors[byteIdx + 1]);
+                    arr.Push((int)_context._currentColors[byteIdx + 2]);
+                }
+                else if (_context._currentColors.Length >= 3)
+                {
+                    arr.Push((int)_context._currentColors[0]);
+                    arr.Push((int)_context._currentColors[1]);
+                    arr.Push((int)_context._currentColors[2]);
+                }
+                else
+                {
+                    arr.Push(0);
+                    arr.Push(0);
+                    arr.Push(0);
+                }
             }
             return arr;
         }
