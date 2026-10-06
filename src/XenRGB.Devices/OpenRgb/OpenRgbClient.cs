@@ -46,6 +46,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
     public const uint CommandSetClientFlags = 52;
     public const uint CommandSetServerFlags = 53;
     public const uint CommandRequestRescanDevices = 140;
+    public const uint CommandResizeZone = 1000;
     public const uint CommandUpdateLeds = 1050;
 
     // Push-packet IDs the server can send without a prior client request.
@@ -367,11 +368,15 @@ public sealed class OpenRgbClient : IOpenRgbClient
     /// OpenRGB v6 ACKs are consumed by the request/response reader during
     /// the next request operation.
     /// </summary>
+    private int _clientLogCounter;
+
     public async Task SendUpdateLedsAsync(
         uint controllerIndex,
         ReadOnlyMemory<uint> bgrColors,
         CancellationToken ct = default)
     {
+        bool isDiagFrame = Interlocked.Increment(ref _clientLogCounter) % 30 == 0;
+
         if (!await TryAcquireLockAsync(_writeLock, ct).ConfigureAwait(false))
             return;
 
@@ -414,6 +419,11 @@ public sealed class OpenRgbClient : IOpenRgbClient
                     colors[i]);
             }
 
+            if (isDiagFrame && colorCount > 0)
+            {
+                Console.WriteLine($"[DIAG] OpenRGB UpdateLeds: device={controllerIndex}, leds={colorCount}, payload={payloadSize} bytes, sample=0x{colors[0]:X8}");
+            }
+
             await SendRawAsync(
                 devId,
                 CommandUpdateLeds,
@@ -424,6 +434,35 @@ public sealed class OpenRgbClient : IOpenRgbClient
         {
             // Caller explicitly cancelled the frame.
             // Do not tear down the whole connection here.
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    public async Task ResizeZoneAsync(
+        uint controllerIndex,
+        int zoneIndex,
+        int newSize,
+        CancellationToken ct = default)
+    {
+        if (!await TryAcquireLockAsync(_writeLock, ct).ConfigureAwait(false))
+            return;
+
+        try
+        {
+            uint devId = GetDeviceId(controllerIndex);
+            
+            byte[] payload = new byte[8];
+            BitConverter.TryWriteBytes(payload.AsSpan(0, 4), (uint)zoneIndex);
+            BitConverter.TryWriteBytes(payload.AsSpan(4, 4), (uint)newSize);
+
+            await SendRawAsync(
+                devId,
+                CommandResizeZone,
+                payload,
+                ct).ConfigureAwait(false);
         }
         finally
         {

@@ -20,6 +20,10 @@ public sealed class DeviceFrameThrottler
     public TimeSpan? HeartbeatInterval => _heartbeatInterval;
     public bool HasTransmitted => _hasTransmitted;
 
+    public long GeneratedFrames { get; private set; }
+    public long SkippedFrames { get; private set; }
+    public long SentFrames { get; private set; }
+
     public DeviceFrameThrottler(TimeSpan? heartbeatInterval = null, TimeProvider? timeProvider = null)
     {
         _heartbeatInterval = heartbeatInterval;
@@ -34,6 +38,7 @@ public sealed class DeviceFrameThrottler
     /// </summary>
     public bool ShouldTransmit(ReadOnlySpan<RgbColor> currentFrame)
     {
+        GeneratedFrames++;
         if (!_hasTransmitted || _lastFrame == null || _lastFrame.Length != currentFrame.Length)
         {
             return true;
@@ -56,6 +61,7 @@ public sealed class DeviceFrameThrottler
             }
         }
 
+        SkippedFrames++;
         return false;
     }
 
@@ -65,6 +71,7 @@ public sealed class DeviceFrameThrottler
     /// </summary>
     public void MarkTransmitted(ReadOnlySpan<RgbColor> transmittedFrame)
     {
+        SentFrames++;
         if (_lastFrame == null || _lastFrame.Length != transmittedFrame.Length)
         {
             _lastFrame = new RgbColor[transmittedFrame.Length];

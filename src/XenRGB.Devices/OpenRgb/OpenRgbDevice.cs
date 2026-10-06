@@ -56,14 +56,27 @@ public sealed class OpenRgbDevice : IRgbDevice
         _throttler = new DeviceFrameThrottler(heartbeatInterval, timeProvider);
     }
 
+    private int _logCounter;
+
     public async Task UpdateLedsAsync(ReadOnlyMemory<RgbColor> colors, CancellationToken ct = default)
     {
         if (!IsEnabled || ConnectionState != DeviceConnectionState.Connected)
             return;
 
+        bool isDiagFrame = Interlocked.Increment(ref _logCounter) % 30 == 0;
+        if (isDiagFrame && colors.Length > 0)
+        {
+            Console.WriteLine($"[DIAG] OpenRgbDevice.UpdateLedsAsync: dev={Name}, leds={colors.Length}, sample=({colors.Span[0].R},{colors.Span[0].G},{colors.Span[0].B})");
+        }
+
         int count = Math.Min(colors.Length, LedCount);
         if (!_throttler.ShouldTransmit(colors.Span[..count]))
+        {
+            if (isDiagFrame) Console.WriteLine($"[DIAG] Throttler: generated={_throttler.GeneratedFrames}, skipped={_throttler.SkippedFrames}, sent={_throttler.SentFrames}");
             return;
+        }
+
+        if (isDiagFrame) Console.WriteLine($"[DIAG] Throttler: generated={_throttler.GeneratedFrames}, skipped={_throttler.SkippedFrames}, sent={_throttler.SentFrames}");
 
         // Drop stale frame if previous transmission is still in-flight
         if (Interlocked.CompareExchange(ref _isSending, 1, 0) != 0)

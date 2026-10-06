@@ -32,8 +32,20 @@ public static class OpenRgbServerManager
         string exePath = FindOpenRgbExe();
         if (string.IsNullOrEmpty(exePath))
         {
-            Debug.WriteLine("OpenRGB executable not found");
-            return false;
+            Debug.WriteLine("OpenRGB executable not found, attempting to download...");
+            bool downloaded = await DownloadOpenRgbAsync(ct);
+            if (!downloaded)
+            {
+                Debug.WriteLine("Failed to download OpenRGB automatically.");
+                return false;
+            }
+            
+            exePath = FindOpenRgbExe();
+            if (string.IsNullOrEmpty(exePath))
+            {
+                Debug.WriteLine("OpenRGB executable still not found after download.");
+                return false;
+            }
         }
 
         Debug.WriteLine("starting OpenRGB server");
@@ -45,7 +57,8 @@ public static class OpenRgbServerManager
                 Arguments = "--server",
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
+                WindowStyle = ProcessWindowStyle.Hidden,
+                WorkingDirectory = Path.GetDirectoryName(exePath)
             };
             Process.Start(psi);
             Debug.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] [Diagnostics] OpenRGB process started");
@@ -80,9 +93,16 @@ public static class OpenRgbServerManager
     private static string FindOpenRgbExe()
     {
         // Search locations
+        string baseLocal = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OpenRGB");
+        if (Directory.Exists(baseLocal))
+        {
+            var files = Directory.GetFiles(baseLocal, "OpenRGB.exe", SearchOption.AllDirectories);
+            if (files.Length > 0)
+                return files[0];
+        }
+
         string[] searchPaths = 
         {
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OpenRGB", "OpenRGB.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "OpenRGB", "OpenRGB.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "OpenRGB", "OpenRGB.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenRGB", "OpenRGB.exe")
@@ -97,6 +117,42 @@ public static class OpenRgbServerManager
         }
 
         return string.Empty;
+    }
+
+    private static async Task<bool> DownloadOpenRgbAsync(CancellationToken ct)
+    {
+        try
+        {
+            string targetDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "OpenRGB");
+            if (!Directory.Exists(targetDir))
+            {
+                Directory.CreateDirectory(targetDir);
+            }
+
+            string zipPath = Path.Combine(targetDir, "OpenRGB.zip");
+            string downloadUrl = "https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_1.0/OpenRGB_1.0_Windows_64_81bbe18.zip";
+            
+            Debug.WriteLine($"Downloading OpenRGB from {downloadUrl}");
+            using var httpClient = new System.Net.Http.HttpClient();
+            var response = await httpClient.GetAsync(downloadUrl, ct);
+            response.EnsureSuccessStatusCode();
+            
+            using (var fs = new FileStream(zipPath, FileMode.Create))
+            {
+                await response.Content.CopyToAsync(fs, ct);
+            }
+            
+            Debug.WriteLine($"Extracting OpenRGB...");
+            System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, targetDir, true);
+            File.Delete(zipPath);
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to download OpenRGB: {ex.Message}");
+            return false;
+        }
     }
 
     private static async Task<bool> IsPortOpenAsync(string host, int port, CancellationToken ct)

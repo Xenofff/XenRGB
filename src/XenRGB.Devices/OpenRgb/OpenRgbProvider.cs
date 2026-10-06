@@ -347,7 +347,17 @@ public sealed class OpenRgbProvider : IDeviceProvider
             try
             {
                 byte[] raw = await _client.GetControllerDataRawAsync(i, ct).ConfigureAwait(false);
-                var parsed = ParseControllerData(i, raw);
+                var parsed = ParseControllerData(i, raw, out var zonesToResize);
+                if (zonesToResize != null && zonesToResize.Count > 0)
+                {
+                    foreach (var z in zonesToResize)
+                    {
+                        await _client.ResizeZoneAsync(i, z.ZoneIndex, z.NewSize, ct).ConfigureAwait(false);
+                    }
+                    // Fetch data again since it changed
+                    raw = await _client.GetControllerDataRawAsync(i, ct).ConfigureAwait(false);
+                    parsed = ParseControllerData(i, raw, out _);
+                }
                 if (parsed == null) continue;
 
                 lock (_devicesLock)
@@ -432,8 +442,9 @@ public sealed class OpenRgbProvider : IDeviceProvider
         }
     }
 
-    private OpenRgbDevice? ParseControllerData(uint index, byte[] data)
+    private OpenRgbDevice? ParseControllerData(uint index, byte[] data, out List<(int ZoneIndex, int NewSize)> zonesToResize)
     {
+        zonesToResize = new List<(int, int)>();
         if (data == null || data.Length < 16)
             return null;
 
@@ -467,11 +478,19 @@ public sealed class OpenRgbProvider : IDeviceProvider
             for (int z = 0; z < zoneCount; z++)
             {
                 ReadLengthPrefixedString(reader); // zone name
-                reader.ReadInt32();  // zone type
+                int zoneType = reader.ReadInt32();  // zone type
                 reader.ReadUInt32(); // leds_min
-                reader.ReadUInt32(); // leds_max
+                uint ledsMax = reader.ReadUInt32(); // leds_max
                 uint zLedsCount = reader.ReadUInt32();
                 totalZoneLeds += (int)zLedsCount;
+
+                // ZONE_TYPE_LINEAR is usually 1, ZONE_TYPE_SINGLE is 0. If it's 0 size but max > 0, resize it.
+                if (zLedsCount == 0 && ledsMax > 0 && zoneType == 1)
+                {
+                    // ARGB header that needs resizing. We'll try setting it to a max of 120 (e.g. 6 fans * 20) or ledsMax.
+                    int newSize = (int)Math.Min(ledsMax, 120); 
+                    zonesToResize.Add((z, newSize));
+                }
 
                 ushort matrixLen = reader.ReadUInt16();
                 if (matrixLen > 0)
