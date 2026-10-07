@@ -101,6 +101,20 @@ class Program
 
             mbDevice.UpdateLedsAsync(new ReadOnlyMemory<XenRGB.SDK.RgbColor>(mbColors)).GetAwaiter().GetResult();
             Console.WriteLine("NativeJsDevice Motherboard UpdateLedsAsync with Per-LED Rainbow SUCCESS!");
+
+            Console.WriteLine("Testing SetPowerAsync(false)...");
+            device.SetPowerAsync(false).GetAwaiter().GetResult();
+            mbDevice.SetPowerAsync(false).GetAwaiter().GetResult();
+            Console.WriteLine("Power OFF SUCCESS!");
+
+            Thread.Sleep(500);
+
+            Console.WriteLine("Testing SetPowerAsync(true)...");
+            device.SetPowerAsync(true).GetAwaiter().GetResult();
+            mbDevice.SetPowerAsync(true).GetAwaiter().GetResult();
+            device.UpdateLedsAsync(new ReadOnlyMemory<XenRGB.SDK.RgbColor>(testColors)).GetAwaiter().GetResult();
+            mbDevice.UpdateLedsAsync(new ReadOnlyMemory<XenRGB.SDK.RgbColor>(mbColors)).GetAwaiter().GetResult();
+            Console.WriteLine("Power ON and Restore SUCCESS!");
         }
     }
 }

@@ -32,6 +32,7 @@ public class NativeJsDevice : IRgbDevice
     private readonly DeviceContext _context;
     private readonly byte[] _rgbBuffer;
     private readonly Action _renderFunc;
+    private readonly object _renderLock = new();
 
     public NativeJsDevice(IHidDevice hidDevice, string scriptContent, string name, RgbDeviceType type)
     {
@@ -326,30 +327,81 @@ public class NativeJsDevice : IRgbDevice
 
     public Task SetPowerAsync(bool isOn, CancellationToken ct = default)
     {
+        lock (_renderLock)
+        {
+            if (isOn)
+            {
+                try
+                {
+                    var init = _engine.GetValue("Initialize");
+                    if (!init.IsUndefined())
+                    {
+                        _engine.Invoke("Initialize");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[JS Re-Init Error {Name}] {ex.Message}");
+                }
+
+                Throttler.Reset();
+            }
+            else
+            {
+                try
+                {
+                    var shutdown = _engine.GetValue("Shutdown");
+                    if (!shutdown.IsUndefined())
+                    {
+                        _engine.Invoke("Shutdown", true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[JS Shutdown Error {Name}] {ex.Message}");
+                }
+
+                Array.Fill(CurrentColors, RgbColor.Black);
+                Array.Clear(_rgbBuffer, 0, _rgbBuffer.Length);
+                _context.UpdateColors(_rgbBuffer);
+
+                try
+                {
+                    _renderFunc();
+                }
+                catch { }
+
+                Throttler.Reset();
+            }
+        }
+
         return Task.CompletedTask;
     }
 
     public Task UpdateLedsAsync(ReadOnlyMemory<RgbColor> colors, CancellationToken ct = default)
     {
-        var span = colors.Span;
-        int count = Math.Min(LedCount, span.Length);
-
-        bool dirty = Throttler.ShouldTransmit(span);
-        if (!dirty) return Task.CompletedTask;
-
-        for (int i = 0; i < count; i++)
+        lock (_renderLock)
         {
-            CurrentColors[i] = span[i];
-            _rgbBuffer[i * 3 + 0] = span[i].R;
-            _rgbBuffer[i * 3 + 1] = span[i].G;
-            _rgbBuffer[i * 3 + 2] = span[i].B;
+            var span = colors.Span;
+            int count = Math.Min(LedCount, span.Length);
+
+            bool dirty = Throttler.ShouldTransmit(span);
+            if (!dirty) return Task.CompletedTask;
+
+            for (int i = 0; i < count; i++)
+            {
+                CurrentColors[i] = span[i];
+                _rgbBuffer[i * 3 + 0] = span[i].R;
+                _rgbBuffer[i * 3 + 1] = span[i].G;
+                _rgbBuffer[i * 3 + 2] = span[i].B;
+            }
+
+            _context.UpdateColors(_rgbBuffer);
+
+            _renderFunc();
+            Throttler.MarkTransmitted(span);
+            TransmissionCount++;
         }
-
-        _context.UpdateColors(_rgbBuffer);
-
-        _renderFunc();
-        Throttler.MarkTransmitted(span);
-        TransmissionCount++;
 
         return Task.CompletedTask;
     }

@@ -122,24 +122,24 @@ public sealed class RgbEngine : IDisposable
                     _ = device.SetPowerAsync(true);
                 }
 
-                // Wake up engine thread
+                // Wake up engine thread immediately
                 _wakeEvent.Set();
             }
             else
             {
-                // Turn off all devices immediately (black frame)
-                SendBlackFrameToAll();
                 _wakeEvent.Reset();
+                // Send black frame to all devices immediately
+                SendBlackFrameToAll();
             }
         }
     }
 
     private void SendBlackFrameToAll()
     {
-        List<IRgbDevice> currentDevices;
+        IRgbDevice[] currentDevices;
         lock (_lock)
         {
-            currentDevices = _devices.ToList();
+            currentDevices = _deviceSnapshot;
         }
 
         foreach (var device in currentDevices)
@@ -147,21 +147,18 @@ public sealed class RgbEngine : IDisposable
             if (device.ConnectionState != DeviceConnectionState.Connected)
                 continue;
 
-            var blackArray = new RgbColor[device.LedCount];
-            Array.Fill(blackArray, RgbColor.Black);
-
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    await device.UpdateLedsAsync(blackArray).ConfigureAwait(false);
-                    await device.SetPowerAsync(false).ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Ignore errors during power off
-                }
-            });
+                var blackArray = new RgbColor[device.LedCount];
+                Array.Fill(blackArray, RgbColor.Black);
+
+                _ = device.UpdateLedsAsync(blackArray);
+                _ = device.SetPowerAsync(false);
+            }
+            catch
+            {
+                // Ignore errors during power off
+            }
         }
     }
 
@@ -176,12 +173,19 @@ public sealed class RgbEngine : IDisposable
 
         while (!_cts.IsCancellationRequested)
         {
-            // If lighting is disabled, pause thread completely: 0% CPU consumption!
+            // If lighting is disabled, keep devices off and send keepalive black frames every 1000ms.
+            // This prevents keyboard watchdogs from reverting to default hardware effects, while consuming virtually 0% CPU.
             if (!_isLightingEnabled)
             {
-                _wakeEvent.Wait(_cts.Token);
-                sw.Restart();
-                lastTotalSeconds = 0f;
+                bool woken = _wakeEvent.Wait(1000, _cts.Token);
+                if (woken)
+                {
+                    sw.Restart();
+                    lastTotalSeconds = 0f;
+                    continue;
+                }
+
+                SendBlackFrameToAll();
                 continue;
             }
 
@@ -225,6 +229,9 @@ public sealed class RgbEngine : IDisposable
 
         lock (_lock)
         {
+            if (!_isLightingEnabled)
+                return;
+
             effect = _activeEffect;
             devices = _deviceSnapshot;
             masterBrightness = _masterBrightness;

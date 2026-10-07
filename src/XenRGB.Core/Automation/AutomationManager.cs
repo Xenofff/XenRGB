@@ -64,6 +64,7 @@ public sealed class AutomationManager : IDisposable
             IsInactive = false;
             CancelMonitorOffDelay();
             SetLightingState(true);
+            AutomationStatusChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -75,6 +76,7 @@ public sealed class AutomationManager : IDisposable
             IsManuallyTurnedOff = true;
             CancelMonitorOffDelay();
             SetLightingState(false);
+            AutomationStatusChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -86,6 +88,7 @@ public sealed class AutomationManager : IDisposable
             IsManuallyTurnedOff = false;
             CancelMonitorOffDelay();
             SetLightingState(false);
+            AutomationStatusChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
