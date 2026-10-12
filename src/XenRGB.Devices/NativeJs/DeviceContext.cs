@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using HidLibrary;
 using Jint;
@@ -11,8 +13,27 @@ namespace XenRGB.Devices.NativeJs;
 
 public class DeviceContext
 {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool WriteFile(
+        IntPtr hFile,
+        byte[] lpBuffer,
+        uint nNumberOfBytesToWrite,
+        out uint lpNumberOfBytesWritten,
+        IntPtr lpOverlapped);
+
+    [DllImport("hid.dll", SetLastError = true)]
+    private static extern bool HidD_SetFeature(
+        IntPtr HidDeviceObject,
+        byte[] ReportBuffer,
+        uint ReportBufferLength);
+
+    private static readonly FieldInfo? _denseField = typeof(JsArray).GetField("_dense", BindingFlags.NonPublic | BindingFlags.Instance);
+
     private readonly IHidDevice _hidDevice;
+    private readonly IntPtr _fallbackWriteHandle;
+    private IntPtr WriteHandle => (_hidDevice as HidDevice)?.WriteHandle ?? _fallbackWriteHandle;
     private readonly Action<string> _logAction;
+    private readonly byte[] _reusablePacketBuffer = new byte[2048];
 
     public Engine? Engine { get; set; }
 
@@ -20,6 +41,19 @@ public class DeviceContext
     {
         _hidDevice = hidDevice;
         _logAction = logAction;
+
+        if (hidDevice is HidDevice hd)
+        {
+            _fallbackWriteHandle = hd.WriteHandle;
+        }
+
+        for (int x = 0; x < 64; x++)
+        {
+            for (int y = 0; y < 32; y++)
+            {
+                _gridMap[x, y] = -1;
+            }
+        }
     }
 
     public void log(object message)
@@ -34,46 +68,77 @@ public class DeviceContext
         _logAction?.Invoke(message.ToString() ?? "");
     }
 
-    private byte[]? BuildBuffer(object packetObj, int length)
+    private int BuildBuffer(object packetObj, int length)
     {
-        if (packetObj == null || length <= 0) return null;
-        byte[] buffer = new byte[length];
+        if (packetObj == null || length <= 0) return 0;
+        int targetLen = Math.Min(length, _reusablePacketBuffer.Length);
 
         if (packetObj is JsArray jsArr)
         {
-            uint count = Math.Min((uint)length, (uint)jsArr.Length);
-            for (uint i = 0; i < count; i++)
+            if (_denseField?.GetValue(jsArr) is JsValue[] dense)
+            {
+                int count = Math.Min(targetLen, dense.Length);
+                for (int i = 0; i < count; i++)
+                {
+                    _reusablePacketBuffer[i] = (byte)dense[i].AsNumber();
+                }
+                if (count < targetLen)
+                {
+                    Array.Clear(_reusablePacketBuffer, count, targetLen - count);
+                }
+                return targetLen;
+            }
+
+            uint jsCount = Math.Min((uint)targetLen, jsArr.Length);
+            for (uint i = 0; i < jsCount; i++)
             {
                 var val = jsArr[i];
-                if (val.IsNumber())
-                {
-                    buffer[i] = (byte)val.AsNumber();
-                }
+                _reusablePacketBuffer[i] = val.IsNumber() ? (byte)val.AsNumber() : (byte)0;
             }
-            return buffer;
+            if (jsCount < targetLen)
+            {
+                Array.Clear(_reusablePacketBuffer, (int)jsCount, targetLen - (int)jsCount);
+            }
+            return targetLen;
         }
 
         if (packetObj is object[] packet)
         {
-            for (int i = 0; i < length && i < packet.Length; i++)
+            int count = Math.Min(targetLen, packet.Length);
+            for (int i = 0; i < count; i++)
             {
-                if (packet[i] is double d) buffer[i] = (byte)d;
-                else if (packet[i] is int val) buffer[i] = (byte)val;
-                else if (packet[i] is IConvertible c) buffer[i] = c.ToByte(null);
-                else buffer[i] = 0;
+                if (packet[i] is double d) _reusablePacketBuffer[i] = (byte)d;
+                else if (packet[i] is int val) _reusablePacketBuffer[i] = (byte)val;
+                else if (packet[i] is IConvertible c) _reusablePacketBuffer[i] = c.ToByte(null);
+                else _reusablePacketBuffer[i] = 0;
             }
-            return buffer;
+            if (count < targetLen)
+            {
+                Array.Clear(_reusablePacketBuffer, count, targetLen - count);
+            }
+            return targetLen;
         }
 
-        return buffer;
+        return 0;
     }
 
     public int send_report(object packetObj, int length)
     {
-        byte[]? buffer = BuildBuffer(packetObj, length);
-        if (buffer != null && _hidDevice != null)
+        int bytes = BuildBuffer(packetObj, length);
+        if (bytes <= 0) return -1;
+
+        IntPtr handle = WriteHandle;
+        if (handle != IntPtr.Zero)
         {
-            return _hidDevice.WriteFeatureData(buffer) ? length : -1;
+            if (HidD_SetFeature(handle, _reusablePacketBuffer, (uint)bytes))
+                return bytes;
+        }
+
+        if (_hidDevice != null)
+        {
+            byte[] fallback = new byte[bytes];
+            Array.Copy(_reusablePacketBuffer, fallback, bytes);
+            return _hidDevice.WriteFeatureData(fallback) ? bytes : -1;
         }
         return -1;
     }
@@ -82,10 +147,21 @@ public class DeviceContext
 
     public int write(object packetObj, int length)
     {
-        byte[]? buffer = BuildBuffer(packetObj, length);
-        if (buffer != null && _hidDevice != null)
+        int bytes = BuildBuffer(packetObj, length);
+        if (bytes <= 0) return -1;
+
+        IntPtr handle = WriteHandle;
+        if (handle != IntPtr.Zero)
         {
-            return _hidDevice.Write(buffer) ? length : -1;
+            if (WriteFile(handle, _reusablePacketBuffer, (uint)bytes, out _, IntPtr.Zero))
+                return bytes;
+        }
+
+        if (_hidDevice != null)
+        {
+            byte[] fallback = new byte[bytes];
+            Array.Copy(_reusablePacketBuffer, fallback, bytes);
+            return _hidDevice.Write(fallback) ? bytes : -1;
         }
         return -1;
     }
@@ -119,6 +195,7 @@ public class DeviceContext
 
     // Colors & LED Mapping
     private byte[] _currentColors = Array.Empty<byte>(); // Format: R,G,B for each LED
+    private readonly int[,] _gridMap = new int[64, 32];
     private readonly Dictionary<(int x, int y), int> _xyToLedIndex = new();
     private readonly Dictionary<string, int> _nameToLedIndex = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _subdeviceToLedIndex = new(StringComparer.OrdinalIgnoreCase);
@@ -127,9 +204,21 @@ public class DeviceContext
     {
         _xyToLedIndex.Clear();
         _nameToLedIndex.Clear();
+        for (int x = 0; x < 64; x++)
+        {
+            for (int y = 0; y < 32; y++)
+            {
+                _gridMap[x, y] = -1;
+            }
+        }
+
         foreach (var led in leds)
         {
             _xyToLedIndex[(led.x, led.y)] = led.index;
+            if ((uint)led.x < 64 && (uint)led.y < 32)
+            {
+                _gridMap[led.x, led.y] = led.index;
+            }
             if (!string.IsNullOrEmpty(led.name))
             {
                 _nameToLedIndex[led.name] = led.index;
@@ -198,16 +287,27 @@ public class DeviceContext
 
     public int[] color(int x, int y)
     {
-        if (_xyToLedIndex.TryGetValue((x, y), out int ledIdx))
+        int ledIdx = ((uint)x < 64 && (uint)y < 32) ? _gridMap[x, y] : -1;
+        if (ledIdx < 0 && !_xyToLedIndex.TryGetValue((x, y), out ledIdx))
         {
-            int offset = ledIdx * 3;
-            if (offset + 2 < _currentColors.Length)
+            if (_currentColors.Length >= 3)
             {
-                _reusableColor[0] = _currentColors[offset];
-                _reusableColor[1] = _currentColors[offset + 1];
-                _reusableColor[2] = _currentColors[offset + 2];
+                _reusableColor[0] = _currentColors[0];
+                _reusableColor[1] = _currentColors[1];
+                _reusableColor[2] = _currentColors[2];
                 return _reusableColor;
             }
+            _reusableColor[0] = 0; _reusableColor[1] = 0; _reusableColor[2] = 0;
+            return _reusableColor;
+        }
+
+        int offset = ledIdx * 3;
+        if (offset + 2 < _currentColors.Length)
+        {
+            _reusableColor[0] = _currentColors[offset];
+            _reusableColor[1] = _currentColors[offset + 1];
+            _reusableColor[2] = _currentColors[offset + 2];
+            return _reusableColor;
         }
 
         if (_currentColors.Length >= 3)

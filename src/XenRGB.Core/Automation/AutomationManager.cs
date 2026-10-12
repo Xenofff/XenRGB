@@ -138,11 +138,11 @@ public sealed class AutomationManager : IDisposable
                     var token = _monitorOffDelayCts.Token;
                     int delayMs = Config.MonitorOffDelaySeconds * 1000;
 
-                    _ = Task.Run(async () =>
+                    _ = Task.Run(() =>
                     {
                         try
                         {
-                            await Task.Delay(delayMs, token).ConfigureAwait(false);
+                            token.WaitHandle.WaitOne(delayMs);
                             lock (_stateLock)
                             {
                                 if (!token.IsCancellationRequested && IsMonitorOff)

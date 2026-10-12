@@ -123,7 +123,7 @@ public sealed class AppCoordinator : IDisposable
         }
 
         Engine.MasterBrightness = profile.MasterBrightness;
-        Engine.TargetFps = ConfigService.Settings.TargetFps;
+        Engine.TargetFps = Math.Clamp(ConfigService.Settings.TargetFps, 10, 15);
 
         // 5. Initialize real hardware providers (MockProvider is excluded from production startup)
         // WireProvider(OpenRgbProvider);

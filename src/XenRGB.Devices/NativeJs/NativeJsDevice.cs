@@ -32,11 +32,6 @@ public class NativeJsDevice : IRgbDevice
     private readonly Engine _engine;
     private readonly DeviceContext _context;
     private readonly byte[] _rgbBuffer;
-    private readonly byte[] _pendingRgbBuffer;
-    private readonly RgbColor[] _pendingColors;
-    private bool _hasPendingFrame;
-    private int _isTransmitting;
-    private readonly object _stagingLock = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly Action _renderFunc;
     private readonly object _renderLock = new();
@@ -324,8 +319,6 @@ public class NativeJsDevice : IRgbDevice
         LedCount = totalLeds;
         CurrentColors = new RgbColor[totalLeds];
         _rgbBuffer = new byte[totalLeds * 3];
-        _pendingRgbBuffer = new byte[totalLeds * 3];
-        _pendingColors = new RgbColor[totalLeds];
 
         _context.SetLedMapping(mappings);
 
@@ -336,11 +329,6 @@ public class NativeJsDevice : IRgbDevice
 
     public Task SetPowerAsync(bool isOn, CancellationToken ct = default)
     {
-        lock (_stagingLock)
-        {
-            _hasPendingFrame = false;
-        }
-
         lock (_renderLock)
         {
             if (isOn)
@@ -397,78 +385,32 @@ public class NativeJsDevice : IRgbDevice
         var span = colors.Span;
         int count = Math.Min(LedCount, span.Length);
 
-        // Fast dirty-check before acquiring staging lock
+        // Fast dirty-check before acquiring render lock
         bool dirty = Throttler.ShouldTransmit(span);
         if (!dirty) return Task.CompletedTask;
 
-        lock (_stagingLock)
+        lock (_renderLock)
         {
-            span[..count].CopyTo(_pendingColors.AsSpan(0, count));
+            span[..count].CopyTo(CurrentColors.AsSpan(0, count));
             for (int i = 0; i < count; i++)
             {
-                _pendingRgbBuffer[i * 3 + 0] = span[i].R;
-                _pendingRgbBuffer[i * 3 + 1] = span[i].G;
-                _pendingRgbBuffer[i * 3 + 2] = span[i].B;
+                _rgbBuffer[i * 3 + 0] = span[i].R;
+                _rgbBuffer[i * 3 + 1] = span[i].G;
+                _rgbBuffer[i * 3 + 2] = span[i].B;
             }
-            _hasPendingFrame = true;
-        }
 
-        // Trigger background worker if not already running
-        if (Interlocked.CompareExchange(ref _isTransmitting, 1, 0) == 0)
-        {
-            _ = Task.Run(TransmitWorkerLoopAsync);
-        }
+            _context.UpdateColors(_rgbBuffer);
 
-        return Task.CompletedTask;
-    }
-
-    private Task TransmitWorkerLoopAsync()
-    {
-        PowerEfficiencyHelper.EnableThreadEcoQoS();
-
-        try
-        {
-            while (!_cts.IsCancellationRequested)
+            try
             {
-                lock (_stagingLock)
-                {
-                    if (!_hasPendingFrame)
-                    {
-                        _isTransmitting = 0;
-                        return Task.CompletedTask;
-                    }
-
-                    _hasPendingFrame = false;
-                    Array.Copy(_pendingRgbBuffer, _rgbBuffer, _rgbBuffer.Length);
-                    _pendingColors.AsSpan(0, LedCount).CopyTo(CurrentColors.AsSpan(0, LedCount));
-                }
-
-                lock (_renderLock)
-                {
-                    _context.UpdateColors(_rgbBuffer);
-                    _renderFunc();
-                    Throttler.MarkTransmitted(CurrentColors.AsSpan(0, LedCount));
-                    TransmissionCount++;
-                }
-
-                // Brief yield to allow USB controller / host to settle and core to rest.
-                // IMPORTANT: Task.Delay() calls timeBeginPeriod(1) internally via System.Threading.Timer,
-                // which raises the global Windows timer resolution to ~1 ms process-wide.
-                // This prevents the CPU from entering deep C-states (C3/C6+) and keeps
-                // frequency at turbo levels (3+ GHz) even at 0% actual load.
-                // WaitableTimer.SleepWithTolerance uses SetWaitableTimerEx with a tolerable delay,
-                // allowing the kernel to coalesce wakeups and let the CPU stay in low-power states.
-                WaitableTimer.SleepWithTolerance(5, toleranceMs: 16);
+                _renderFunc();
+                Throttler.MarkTransmitted(CurrentColors.AsSpan(0, count));
+                TransmissionCount++;
             }
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"[JS Transmit Error {Name}] {ex.Message}");
-        }
-        finally
-        {
-            _isTransmitting = 0;
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[JS Render Error {Name}] {ex.Message}");
+            }
         }
 
         return Task.CompletedTask;

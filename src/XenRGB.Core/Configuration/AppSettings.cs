@@ -10,7 +10,7 @@ public sealed class AppSettings
     public string OpenRgbHost { get; set; } = "127.0.0.1";
     public int OpenRgbPort { get; set; } = 6742;
     public bool AutoConnectOpenRgb { get; set; } = true;
-    public int TargetFps { get; set; } = 30;
+    public int TargetFps { get; set; } = 15;
     public bool AutoStartWithWindows { get; set; } = false;
     public bool StartMinimizedToTray { get; set; } = false;
     public bool MinimizeToTrayOnClose { get; set; } = true;
