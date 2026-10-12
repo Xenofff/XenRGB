@@ -322,7 +322,7 @@ public class NativeJsDevice : IRgbDevice
 
         _context.SetLedMapping(mappings);
 
-        Throttler = new DeviceFrameThrottler(TimeSpan.FromSeconds(2.0), null, 2);
+        Throttler = new DeviceFrameThrottler(TimeSpan.FromSeconds(1.0), null, 2);
     }
 
     public int LedCount { get; }

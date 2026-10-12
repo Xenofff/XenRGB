@@ -6,24 +6,24 @@ namespace XenRGB.Effects.Custom;
 
 /// <summary>
 /// Faithful port of SignalRGB's Cotton Candy effect by Alex Krastev.
-/// Semi-transparent cyan/magenta circles drift across a multi-zone dark purple/blue background.
+/// Semi-transparent cyan/magenta clouds drift seamlessly across a multi-zone dark purple/blue background.
+///
+/// Features smooth continuous particle recycling from all 4 canvas boundaries and soft
+/// quadratic edge falloff for continuous, organic, non-jerking ambient lighting.
 /// </summary>
 public sealed class CottonCandyCustomEffect : EffectBase
 {
     private struct Blob
     {
-        public float X, Y;
-        public float Radius;
-        public float VX, VY;
+        public float X, Y;          // 0..320, 0..200
+        public float Radius;        // 50..75px
+        public float VX, VY;        // Velocity in pixels/sec
         public bool IsColor1;
-        public float Lifetime;
     }
 
-    private const int MaxBlobs = 30;
-    private const int InitialBlobs = 20;
+    private const int MaxBlobs = 40;
     private readonly Blob[] _blobs = new Blob[MaxBlobs];
-    private int _blobCount;
-    private uint _rngState;
+    private uint _rngState = 0xDEADBEEF;
     private float _lastTime;
     private bool _initialized;
 
@@ -35,7 +35,7 @@ public sealed class CottonCandyCustomEffect : EffectBase
     {
         Id = "cotton-candy",
         Name = "Cotton Candy",
-        Version = "3.0.0",
+        Version = "3.1.0",
         Author = "Alex Krastev (SignalRGB), ported by XenRGB",
         Description = "This effect is sure to make your setup look sweet.",
         Category = "Atmospheric"
@@ -56,85 +56,87 @@ public sealed class CottonCandyCustomEffect : EffectBase
         _rngState ^= _rngState << 13;
         _rngState ^= _rngState >> 17;
         _rngState ^= _rngState << 5;
+        if (_rngState == 0) _rngState = 0xDEADBEEF;
         return (_rngState & 0x7FFFFFFFu) / (float)0x7FFFFFFF;
     }
 
-    private int NextInt(int max)
-    {
-        return (int)(NextFloat() * max) % max;
-    }
+    private int NextInt(int max) => (int)(NextFloat() * max) % max;
 
     protected override void OnInitialize()
     {
         _rngState = 0xDEADBEEF;
-        _blobCount = 0;
         _lastTime = 0f;
-        _initialized = false;
 
-        for (int i = 0; i < InitialBlobs && _blobCount < MaxBlobs; i++)
+        for (int i = 0; i < MaxBlobs; i++)
         {
-            SpawnInitBlob();
+            SpawnBlob(i, randomOnCanvas: true);
         }
         _initialized = true;
     }
 
-    private void SpawnInitBlob()
+    protected override void OnReset()
     {
-        var b = new Blob
-        {
-            X = NextFloat() * 320f,
-            Y = NextFloat() * 200f,
-            Radius = NextFloat() * 25f + 40f,
-            IsColor1 = NextInt(3) != 1,
-            Lifetime = 1f
-        };
+        OnInitialize();
+    }
 
+    private void SpawnBlob(int index, bool randomOnCanvas)
+    {
+        float x, y, vx, vy;
+        float baseSpeed = 7.0f;
         int dir = NextInt(4);
-        float baseSpeed = 6.0f;
-        switch (dir)
+
+        if (randomOnCanvas)
         {
-            case 0: b.VX = -baseSpeed; b.VY = 0; break;
-            case 1: b.VX = baseSpeed; b.VY = 0; break;
-            case 2: b.VX = 0; b.VY = baseSpeed; break;
-            default: b.VX = 0; b.VY = -baseSpeed; break;
+            x = NextFloat() * 320f;
+            y = NextFloat() * 200f;
+            switch (dir)
+            {
+                case 0: vx = -baseSpeed; vy = (NextFloat() - 0.5f) * 4f; break;
+                case 1: vx = baseSpeed; vy = (NextFloat() - 0.5f) * 4f; break;
+                case 2: vx = (NextFloat() - 0.5f) * 4f; vy = -baseSpeed; break;
+                default: vx = (NextFloat() - 0.5f) * 4f; vy = baseSpeed; break;
+            }
+        }
+        else
+        {
+            switch (dir)
+            {
+                case 0: // Right edge -> moving Left
+                    x = 320f + NextFloat() * 30f;
+                    y = NextFloat() * 200f;
+                    vx = -baseSpeed;
+                    vy = (NextFloat() - 0.5f) * 4f;
+                    break;
+                case 1: // Left edge -> moving Right
+                    x = -NextFloat() * 30f;
+                    y = NextFloat() * 200f;
+                    vx = baseSpeed;
+                    vy = (NextFloat() - 0.5f) * 4f;
+                    break;
+                case 2: // Bottom edge -> moving Up
+                    x = NextFloat() * 320f;
+                    y = 200f + NextFloat() * 30f;
+                    vx = (NextFloat() - 0.5f) * 4f;
+                    vy = -baseSpeed;
+                    break;
+                default: // Top edge -> moving Down
+                    x = NextFloat() * 320f;
+                    y = -NextFloat() * 30f;
+                    vx = (NextFloat() - 0.5f) * 4f;
+                    vy = baseSpeed;
+                    break;
+            }
         }
 
-        if (_blobCount < MaxBlobs)
-            _blobs[_blobCount++] = b;
-    }
-
-    private void SpawnRightBlob()
-    {
-        var b = new Blob
+        _blobs[index] = new Blob
         {
-            X = 320f + NextFloat() * 50f,
-            Y = NextFloat() * 20f,
-            Radius = NextFloat() * 25f + 40f,
+            X = x,
+            Y = y,
+            Radius = NextFloat() * 25f + 50f, // 50..75px
             IsColor1 = NextInt(3) != 1,
-            Lifetime = 1f,
-            VX = -6.0f,
-            VY = (NextInt(2) == 1 ? 1f : -1f) * 6.0f * 0.5f * NextFloat()
+            VX = vx,
+            VY = vy
         };
-
-        if (_blobCount < MaxBlobs)
-            _blobs[_blobCount++] = b;
-    }
-
-    private void SpawnLeftBlob()
-    {
-        var b = new Blob
-        {
-            X = NextFloat() * 50f - 75f,
-            Y = NextFloat() * 200f,
-            Radius = NextFloat() * 25f + 40f,
-            IsColor1 = NextInt(3) != 1,
-            Lifetime = 1f,
-            VX = 6.0f,
-            VY = (NextInt(2) == 1 ? 1f : -1f) * 6.0f * 0.5f * NextFloat()
-        };
-
-        if (_blobCount < MaxBlobs)
-            _blobs[_blobCount++] = b;
     }
 
     public override void Update(EffectContext context)
@@ -145,38 +147,20 @@ public sealed class CottonCandyCustomEffect : EffectBase
         }
 
         float speedMult = GetFloat("speed", 30f) / 10f;
-        float dt = context.DeltaTime;
+        float dt = (_lastTime > 0f && context.TotalTime > _lastTime)
+            ? Math.Clamp(context.TotalTime - _lastTime, 0.001f, 0.1f)
+            : Math.Clamp(context.DeltaTime, 0.001f, 0.1f);
 
-        for (int i = 0; i < _blobCount; i++)
+        for (int i = 0; i < MaxBlobs; i++)
         {
             _blobs[i].X += _blobs[i].VX * speedMult * dt;
             _blobs[i].Y += _blobs[i].VY * speedMult * dt;
 
-            if (_blobs[i].X > 450f || _blobs[i].X < -100f ||
-                _blobs[i].Y > 300f || _blobs[i].Y < -100f)
+            if (_blobs[i].X > 400f || _blobs[i].X < -80f ||
+                _blobs[i].Y > 280f || _blobs[i].Y < -80f)
             {
-                _blobs[i].Lifetime = 0;
+                SpawnBlob(i, randomOnCanvas: false);
             }
-        }
-
-        int writeIdx = 0;
-        for (int i = 0; i < _blobCount; i++)
-        {
-            if (_blobs[i].Lifetime > 0)
-            {
-                if (writeIdx != i)
-                    _blobs[writeIdx] = _blobs[i];
-                writeIdx++;
-            }
-        }
-        _blobCount = writeIdx;
-
-        _rngState = (uint)(context.TotalTime * 1000) ^ 0xCAFEBABE;
-        while (_blobCount < MaxBlobs)
-        {
-            SpawnRightBlob();
-            if (_blobCount < MaxBlobs)
-                SpawnLeftBlob();
         }
 
         _lastTime = context.TotalTime;
@@ -208,17 +192,15 @@ public sealed class CottonCandyCustomEffect : EffectBase
             bg = bg1;
         }
 
-        const float blobAlpha = 119f / 255f;
+        const float maxBlobAlpha = 119f / 255f;
 
         float rOut = bg.R / 255f;
         float gOut = bg.G / 255f;
         float bOut = bg.B / 255f;
 
-        for (int i = 0; i < _blobCount; i++)
+        for (int i = 0; i < MaxBlobs; i++)
         {
             ref readonly var blob = ref _blobs[i];
-            if (blob.Lifetime <= 0) continue;
-
             float dx = px - blob.X;
             float dy = py - blob.Y;
             float distSq = dx * dx + dy * dy;
@@ -226,14 +208,18 @@ public sealed class CottonCandyCustomEffect : EffectBase
 
             if (distSq < rSq)
             {
+                float normDistSq = distSq / rSq;
+                float falloff = 1f - normDistSq;
+                float alpha = maxBlobAlpha * (falloff * falloff);
+
                 var blobColor = blob.IsColor1 ? col1 : col2;
                 float srcR = blobColor.R / 255f;
                 float srcG = blobColor.G / 255f;
                 float srcB = blobColor.B / 255f;
 
-                rOut = srcR * blobAlpha + rOut * (1f - blobAlpha);
-                gOut = srcG * blobAlpha + gOut * (1f - blobAlpha);
-                bOut = srcB * blobAlpha + bOut * (1f - blobAlpha);
+                rOut = srcR * alpha + rOut * (1f - alpha);
+                gOut = srcG * alpha + gOut * (1f - alpha);
+                bOut = srcB * alpha + bOut * (1f - alpha);
             }
         }
 
