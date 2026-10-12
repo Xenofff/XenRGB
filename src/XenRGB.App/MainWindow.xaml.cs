@@ -40,7 +40,11 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            appWindow.SetIcon("Assets/AppIcon.ico");
+            string iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
+            if (System.IO.File.Exists(iconPath))
+            {
+                appWindow.SetIcon(iconPath);
+            }
         }
         catch { }
 
