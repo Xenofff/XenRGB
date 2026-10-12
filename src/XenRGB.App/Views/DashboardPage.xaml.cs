@@ -38,7 +38,7 @@ public sealed partial class DashboardPage : Page
         _coord.DevicesChanged += OnCoordinatorDevicesChanged;
         _coord.Canvas.CanvasChanged += OnCanvasChanged;
 
-        _ledRefreshTimer.Interval = TimeSpan.FromMilliseconds(250); // 4 FPS UI preview (extremely low CPU usage)
+        _ledRefreshTimer.Interval = TimeSpan.FromMilliseconds(1000); // 1 FPS UI preview — imperceptible for ambient lighting, minimal CPU wake cost
         _ledRefreshTimer.Tick += OnLedRefreshTick;
 
         Loaded += OnPageLoaded;

@@ -12,7 +12,8 @@ public sealed class AutomationManager : IDisposable
 {
     private readonly IMonitorStateProvider _monitorProvider;
     private readonly IUserInactivityProvider _inactivityProvider;
-    private readonly Timer _pollTimer;
+    private readonly ManualResetEventSlim _pollStopEvent = new(false);
+    private Thread? _pollThread;
     private readonly object _stateLock = new();
 
     private CancellationTokenSource? _monitorOffDelayCts;
@@ -51,8 +52,17 @@ public sealed class AutomationManager : IDisposable
 
         _monitorProvider.MonitorStateChanged += OnMonitorStateChanged;
 
-        // Poll inactivity every 3 seconds
-        _pollTimer = new Timer(OnPollCheck, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        // Poll inactivity using a background thread with ManualResetEventSlim.Wait instead of
+        // System.Threading.Timer. Timer raises the global Windows timer resolution to ~1ms
+        // (timeBeginPeriod), which prevents the CPU from entering deep C-states (C3/C6+).
+        // ManualResetEventSlim.Wait uses WaitForSingleObjectEx and allows the CPU to sleep deeply.
+        _pollThread = new Thread(PollLoop)
+        {
+            Name = "XenRGB.AutomationPoll",
+            IsBackground = true,
+            Priority = ThreadPriority.Lowest
+        };
+        _pollThread.Start();
     }
 
     public void TurnOn()
@@ -89,6 +99,18 @@ public sealed class AutomationManager : IDisposable
             CancelMonitorOffDelay();
             SetLightingState(false);
             AutomationStatusChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void PollLoop()
+    {
+        XenRGB.Core.Engine.PowerEfficiencyHelper.EnableThreadEcoQoS();
+
+        // Wait 5 seconds between inactivity checks.
+        // ManualResetEventSlim.Wait uses WaitForSingleObjectEx — CPU-friendly, no timer resolution raise.
+        while (!_pollStopEvent.Wait(5000))
+        {
+            OnPollCheck(null);
         }
     }
 
@@ -205,7 +227,9 @@ public sealed class AutomationManager : IDisposable
 
     public void Dispose()
     {
-        _pollTimer.Dispose();
+        _pollStopEvent.Set();
+        _pollThread?.Join(200);
+        _pollStopEvent.Dispose();
         CancelMonitorOffDelay();
         _monitorProvider.MonitorStateChanged -= OnMonitorStateChanged;
     }

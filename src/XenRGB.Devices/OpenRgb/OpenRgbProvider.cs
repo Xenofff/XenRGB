@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using XenRGB.Core.Devices;
+using XenRGB.Core.Engine;
 
 namespace XenRGB.Devices.OpenRgb;
 
@@ -24,6 +25,11 @@ public sealed class OpenRgbProvider : IDeviceProvider
     private string _host;
     private int _port;
     private readonly TimeSpan _reconnectInterval;
+
+    // Used instead of Task.Delay in the reconnect loop — WaitHandle.WaitOne uses
+    // WaitForSingleObjectEx which allows the CPU to enter deep C-states (C3/C6+),
+    // unlike System.Threading.Timer which raises the global timer resolution to 1ms.
+    private readonly ManualResetEventSlim _loopWakeEvent = new(false);
 
     private Task? _reconnectLoopTask;
     private readonly object _loopTaskLock = new();
@@ -194,7 +200,12 @@ public sealed class OpenRgbProvider : IDeviceProvider
                 }
                 else
                 {
-                    await Task.Delay(delay, _loopCts.Token).ConfigureAwait(false);
+                    // IMPORTANT: Task.Delay raises the global Windows timer resolution to ~1ms,
+                    // preventing the CPU from entering deep C-states (C3/C6+).
+                    // ManualResetEventSlim.Wait with a timeout uses WaitForSingleObjectEx under the hood,
+                    // which allows the OS scheduler to coalesce wakeups and let the CPU stay at low frequency.
+                    _loopWakeEvent.Wait((int)delay.TotalMilliseconds, _loopCts.Token);
+                    _loopWakeEvent.Reset();
                 }
             }
             catch (OperationCanceledException)
@@ -324,7 +335,8 @@ public sealed class OpenRgbProvider : IDeviceProvider
             try
             {
                 await _client.RequestRescanAsync(ct).ConfigureAwait(false);
-                await Task.Delay(250, ct).ConfigureAwait(false);
+                // WaitableTimer avoids raising the global timer resolution unlike Task.Delay
+                XenRGB.Core.Engine.WaitableTimer.SleepWithTolerance(250, toleranceMs: 50);
             }
             catch { }
 
@@ -730,8 +742,10 @@ public sealed class OpenRgbProvider : IDeviceProvider
         _isDisposed = true;
 
         try { _loopCts.Cancel(); } catch { }
+        _loopWakeEvent.Set(); // Wake the reconnect loop so it can observe cancellation
         try { _reconnectLoopTask?.Wait(TimeSpan.FromSeconds(1)); } catch { }
         _loopCts.Dispose();
+        _loopWakeEvent.Dispose();
         _connectLock.Dispose();
 
         _client.Dispose();

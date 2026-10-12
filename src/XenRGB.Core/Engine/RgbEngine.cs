@@ -25,7 +25,7 @@ public sealed class RgbEngine : IDisposable
     private IEffect? _activeEffect;
     private float _masterBrightness = 1.0f;
     private bool _isLightingEnabled = true;
-    private int _targetFps = 25;
+    private int _targetFps = 15;
 
     private Thread? _renderThread;
     private readonly CancellationTokenSource _cts = new();
@@ -213,17 +213,17 @@ public sealed class RgbEngine : IDisposable
             // does NOT raise the global timer resolution to ~1 ms.
             // Thread.Sleep() would prevent CPU C-state transitions (C3/C6+),
             // keeping the CPU frequency at turbo levels (2.4–3.5 GHz) even at 0% load.
-            long targetDelayMs = 1000 / _targetFps;
+            // Tolerance = half the frame interval: at 15 FPS (66 ms/frame) we use 32 ms.
+            // This allows the OS to batch this timer with other activity and keep the CPU
+            // in C6 for longer stretches, reducing power from 16-20W to 6-8W target.
+            long targetDelayMs = 1000L / _targetFps;
             long elapsedFrameMs = (long)((sw.Elapsed.TotalSeconds - currentSeconds) * 1000.0);
             long sleepTime = targetDelayMs - elapsedFrameMs;
 
-            if (sleepTime > 0)
+            if (sleepTime > 2)
             {
-                WaitableTimer.SleepWithTolerance(sleepTime);
-            }
-            else
-            {
-                WaitableTimer.SleepWithTolerance(1);
+                uint toleranceMs = (uint)Math.Min(sleepTime / 2, 32);
+                WaitableTimer.SleepWithTolerance(sleepTime, toleranceMs);
             }
         }
     }
