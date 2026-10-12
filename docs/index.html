@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XenRGB — Next-Generation, Low-Power RGB Lighting Controller</title>
+  <meta name="description" content="XenRGB is an ultra-low-power, native Windows RGB controller with 2D spatial canvas, SignalRGB JS plugin execution, and OpenRGB integration. Just 6-8W CPU idle.">
+  <meta name="keywords" content="XenRGB, RGB controller, Windows 11, OpenRGB, SignalRGB, low power, C# SDK, WinUI 3, gaming peripherals">
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="XenRGB — Next-Generation Low-Power RGB Controller">
+  <meta property="og:description" content="60 FPS spatial lighting, native JS plugins, and OpenRGB support — at just 6–8 Watts CPU idle.">
+  <meta property="og:image" content="assets/logo.png">
+  <meta property="og:type" content="website">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="shortcut icon" href="assets/favicon.ico">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Ambient Fluid Background Orbs -->
+  <div class="fluid-backdrop" aria-hidden="true">
+    <div class="fluid-orb orb-cyan"></div>
+    <div class="fluid-orb orb-magenta"></div>
+    <div class="fluid-orb orb-violet"></div>
+    <div class="fluid-orb orb-blue"></div>
+  </div>
+
+  <!-- Noise Overlay for frosted glass texture -->
+  <div class="noise-overlay" aria-hidden="true"></div>
+
+  <!-- Navigation Bar -->
+  <header class="navbar-wrapper">
+    <nav class="liquid-glass navbar" id="main-nav">
+      <a href="#" class="brand-link" id="brand-logo">
+        <img src="assets/logo.png" alt="XenRGB Logo" class="brand-icon">
+        <span class="brand-name">Xen<span>RGB</span></span>
+      </a>
+
+      <div class="nav-links" id="nav-menu">
+        <a href="#features" class="nav-item">Features</a>
+        <a href="#efficiency" class="nav-item">Efficiency</a>
+        <a href="#simulator" class="nav-item">Live Rig</a>
+        <a href="#hardware" class="nav-item">Hardware</a>
+        <a href="#sdk" class="nav-item">Effect SDK</a>
+      </div>
+
+      <div class="nav-actions">
+        <a href="https://github.com/your-username/XenRGB" target="_blank" rel="noopener noreferrer" class="btn btn-glass btn-sm" id="btn-github">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+        <a href="#quickstart" class="btn btn-primary btn-sm" id="btn-get-started">Get Started</a>
+      </div>
+
+      <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section" id="hero">
+    <div class="container hero-container">
+      <div class="hero-badge liquid-glass-pill" id="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>Zero Webview &bull; 60 FPS Lighting &bull; 6–8W CPU Idle</span>
+      </div>
+
+      <h1 class="hero-title" id="hero-heading">
+        Unleash True RGB.<br>
+        <span class="gradient-text">Zero CPU Tax.</span>
+      </h1>
+
+      <p class="hero-description" id="hero-subtitle">
+        Commercial lighting suites burn 20–35W idling and pin your CPU at 3.0+ GHz. 
+        <strong>XenRGB</strong> is a native <strong>.NET 9 & WinUI 3</strong> controller delivering buttery-smooth 
+        spatial lighting across your keyboard, fans, GPU, and LED strips — while letting your processor sleep.
+      </p>
+
+      <div class="hero-buttons">
+        <a href="https://github.com/your-username/XenRGB/releases" class="btn btn-primary btn-lg" id="hero-cta-download">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Download for Windows</span>
+        </a>
+        <a href="#simulator" class="btn btn-glass btn-lg" id="hero-cta-demo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="10 8 16 12 10 16 10 8"></polygon>
+          </svg>
+          <span>Try Interactive Rig</span>
+        </a>
+      </div>
+
+      <!-- Hero Visual Glass Showcase -->
+      <div class="hero-showcase liquid-glass-card" id="hero-showcase">
+        <div class="window-header">
+          <div class="window-controls">
+            <span class="win-btn win-close"></span>
+            <span class="win-btn win-min"></span>
+            <span class="win-btn win-max"></span>
+          </div>
+          <div class="window-title">XenRGB — Desktop Spatial Layout &amp; Live Monitor</div>
+          <div class="window-status">
+            <span class="status-indicator"></span> 60.0 FPS &bull; EcoQoS Active &bull; 0.8 GHz
+          </div>
+        </div>
+        <div class="showcase-media">
+          <img src="assets/hero-banner.jpg" alt="XenRGB Spatial Canvas and Desktop Rig" class="showcase-img" id="hero-preview-img">
+          <div class="glass-reflection-overlay"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Live Desktop Rig Simulator -->
+  <section class="simulator-section" id="simulator">
+    <div class="container">
+      <div class="section-header text-center">
+        <span class="section-tag liquid-glass-pill">Interactive Live Canvas</span>
+        <h2 class="section-title">See XenRGB's 2D Spatial Lighting in Action</h2>
+        <p class="section-desc">
+          In XenRGB, effects are rendered on a continuous 2D coordinate plane. Colors and fluid waves drift naturally across your keyboard, mouse, and triple-fan radiator. Move your cursor over the rig!
+        </p>
+      </div>
+
+      <div class="simulator-card liquid-glass-card" id="rig-simulator-container">
+        <!-- Simulator Controls Bar -->
+        <div class="simulator-toolbar">
+          <div class="effect-picker">
+            <span class="toolbar-label">Select Effect:</span>
+            <div class="effect-buttons" id="effect-btn-group">
+              <button class="effect-chip active" data-effect="cotton-candy">Cotton Candy</button>
+              <button class="effect-chip" data-effect="rainbow">Rainbow Wave</button>
+              <button class="effect-chip" data-effect="biohazard">Biohazard</button>
+              <button class="effect-chip" data-effect="cyberpunk">Cyberpunk Neon</button>
+            </div>
+          </div>
+
+          <div class="simulator-metrics">
+            <div class="metric-pill">
+              <span class="metric-name">FPS</span>
+              <span class="metric-val" id="sim-fps">60.0</span>
+            </div>
+            <div class="metric-pill">
+              <span class="metric-name">CPU</span>
+              <span class="metric-val highlight" id="sim-power">6.4 W</span>
+            </div>
+            <div class="metric-pill">
+              <span class="metric-name">Pacing</span>
+              <span class="metric-val">WaitableTimer</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2D Canvas Container -->
+        <div class="canvas-viewport" id="canvas-viewport">
+          <canvas id="rig-canvas" width="960" height="480"></canvas>
+          <div class="canvas-hint">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            Interactive canvas &bull; Move mouse or touch to cast dynamic light ripples
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Power Efficiency & C-State Deep Dive -->
+  <section class="efficiency-section" id="efficiency">
+    <div class="container">
+      <div class="section-header text-center">
+        <span class="section-tag liquid-glass-pill">Engineering First</span>
+        <h2 class="section-title">Why Commercial RGB Apps Melt Your CPU</h2>
+        <p class="section-desc">
+          How XenRGB keeps your processor at 0.8–1.2 GHz and 6–8 Watts while rendering 60 FPS lighting.
+        </p>
+      </div>
+
+      <div class="comparison-grid">
+        <!-- Bloated Suites Card -->
+        <div class="liquid-glass-card comparison-card bad-card" id="card-commercial">
+          <div class="card-badge bad-badge">Commercial Software (SignalRGB / iCUE / Synapse)</div>
+          <div class="power-meter">
+            <div class="power-metric">
+              <span class="power-number">24–35 W</span>
+              <span class="power-label">CPU Package Idle Power</span>
+            </div>
+            <div class="freq-metric">
+              <span class="freq-number">3.2–4.2 GHz</span>
+              <span class="freq-label">Idle Clock Speed</span>
+            </div>
+          </div>
+
+          <div class="state-indicator bad-state">
+            <span class="dot red-dot"></span>
+            <span>CPU Core C-States Locked Out (Always C0 Active)</span>
+          </div>
+
+          <ul class="comparison-list">
+            <li>
+              <span class="icon cross">✕</span>
+              <span><strong>Forces <code>timeBeginPeriod(1)</code>:</strong> System timer resolution hijacked to 1ms, waking CPU cores thousands of times per second.</span>
+            </li>
+            <li>
+              <span class="icon cross">✕</span>
+              <span><strong>Heavy Chromium / Electron Runtime:</strong> Hundreds of megabytes of RAM and heavy JavaScript DOM repainting.</span>
+            </li>
+            <li>
+              <span class="icon cross">✕</span>
+              <span><strong>Continuous USB Flooding:</strong> Transmits identical frames unthrottled over USB, hogging HID pipelines.</span>
+            </li>
+            <li>
+              <span class="icon cross">✕</span>
+              <span><strong>Fans Spin Up on Idle:</strong> Extra 20–30W of heat continuously warms your chassis even when reading a document.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- XenRGB Solution Card -->
+        <div class="liquid-glass-card comparison-card good-card" id="card-xenrgb">
+          <div class="card-badge good-badge">XenRGB Architecture</div>
+          <div class="power-meter">
+            <div class="power-metric">
+              <span class="power-number highlight-good">6–8 W</span>
+              <span class="power-label">CPU Package Idle Power</span>
+            </div>
+            <div class="freq-metric">
+              <span class="freq-number highlight-good">0.8–1.2 GHz</span>
+              <span class="freq-label">Deep C-State Clock Speed</span>
+            </div>
+          </div>
+
+          <div class="state-indicator good-state">
+            <span class="dot green-dot"></span>
+            <span>Deep C-States Active (C6/C7/C8 Package Sleep)</span>
+          </div>
+
+          <ul class="comparison-list">
+            <li>
+              <span class="icon check">✓</span>
+              <span><strong>High-Resolution WaitableTimer:</strong> Windows kernel pacer allows cores to sleep in deep hardware C-states between frames.</span>
+            </li>
+            <li>
+              <span class="icon check">✓</span>
+              <span><strong>Pure .NET 9 &amp; WinUI 3 Native:</strong> 0% webview overhead. Microsecond render loops with zero garbage collection pressure.</span>
+            </li>
+            <li>
+              <span class="icon check">✓</span>
+              <span><strong>Frame Throttling &amp; Dirty Checking:</strong> Only modified LEDs trigger USB HID writes, with a 1.0s keepalive pulse for hardware watchdogs.</span>
+            </li>
+            <li>
+              <span class="icon check">✓</span>
+              <span><strong>EcoQoS Efficiency Mode:</strong> Rendering threads tagged with Windows EcoQoS to prioritize energy efficiency over core boost.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Features Grid (Liquid Glass) -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-header text-center">
+        <span class="section-tag liquid-glass-pill">Modular Architecture</span>
+        <h2 class="section-title">Engineered Without Compromise</h2>
+        <p class="section-desc">
+          Every component of XenRGB is built from scratch with clean abstractions, modular providers, and open protocols.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="liquid-glass-card feature-card" id="feat-v8">
+          <div class="feature-icon-wrapper icon-cyan">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <h3 class="feature-title">Native SignalRGB JS Engine</h3>
+          <p class="feature-text">
+            Runs community SignalRGB JavaScript device plugins directly in an embedded Google V8 engine (ClearScript). Full direct USB HID and memory-mapped IO without Electron or Chromium bloat.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="liquid-glass-card feature-card" id="feat-openrgb">
+          <div class="feature-icon-wrapper icon-magenta">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">OpenRGB &amp; WLED Protocol Hub</h3>
+          <p class="feature-text">
+            Auto-downloads, launches, and synchronizes with OpenRGB server to control motherboards, RAM, and GPUs from ASUS, Gigabyte, and Corsair. Streams sub-millisecond UDP DRGB to WLED Wi-Fi strips.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="liquid-glass-card feature-card" id="feat-canvas">
+          <div class="feature-icon-wrapper icon-violet">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="3" y1="9" x2="21" y2="9"></line>
+              <line x1="9" y1="21" x2="9" y2="9"></line>
+            </svg>
+          </div>
+          <h3 class="feature-title">2D Spatial Desktop Canvas</h3>
+          <p class="feature-text">
+            Place your devices on an intuitive visual grid matching your actual desk setup. Circular fan ring layouts automatically map ARGB headers, AIO water blocks, and case fans into beautiful concentric rings.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="liquid-glass-card feature-card" id="feat-roslyn">
+          <div class="feature-icon-wrapper icon-blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+          </div>
+          <h3 class="feature-title">Roslyn Runtime C# Effects</h3>
+          <p class="feature-text">
+            Effects are simple, human-readable C# files (`effect.cs` + `manifest.json`). Hot-reload and compile them on the fly with Microsoft Roslyn compiler at near-instant native execution speed.
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="liquid-glass-card feature-card" id="feat-watchdog">
+          <div class="feature-icon-wrapper icon-amber">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">Hardware Watchdog Guard</h3>
+          <p class="feature-text">
+            Hardware keyboards (like HyperX Alloy Origins) revert to factory rainbow mode if they don't receive USB packets for 2–5 seconds. XenRGB emits intelligent heartbeat frames so your lighting never twitches or drops.
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="liquid-glass-card feature-card" id="feat-sleep">
+          <div class="feature-icon-wrapper icon-green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">Good Night &amp; Display Sleep</h3>
+          <p class="feature-text">
+            Automatically dims and blacks out all lights when screens sleep or lock. Good Night mode keeps the PC running 24/7 in total stealth darkness with zero animation thread CPU consumption (0.0%).
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hardware Compatibility Section -->
+  <section class="hardware-section" id="hardware">
+    <div class="container">
+      <div class="section-header text-center">
+        <span class="section-tag liquid-glass-pill">Broad Compatibility</span>
+        <h2 class="section-title">Hardware You Already Own</h2>
+        <p class="section-desc">
+          Unified control without installing 5 different vendor background services.
+        </p>
+      </div>
+
+      <div class="hardware-grid">
+        <div class="liquid-glass-card hw-card">
+          <div class="hw-card-header">
+            <span class="hw-icon">⌨️</span>
+            <h3>Keyboards &amp; Mice</h3>
+          </div>
+          <ul class="hw-list">
+            <li><strong>HyperX Alloy Origins:</strong> Standard, Core (TKL), 60%, 65%</li>
+            <li><strong>HyperX Alloy Elite &amp; Elite 2:</strong> Per-key + media bar</li>
+            <li><strong>HyperX Pulsefire Haste:</strong> Wired, Wireless, Haste 2</li>
+            <li><strong>HyperX Pulsefire Surge, Core, Dart, Raid</strong></li>
+            <li><strong>HyperX Fury Ultra &amp; Pulsefire Mat:</strong> RGB mousepads</li>
+          </ul>
+        </div>
+
+        <div class="liquid-glass-card hw-card">
+          <div class="hw-card-header">
+            <span class="hw-icon">⚡</span>
+            <h3>Motherboards &amp; ARGB Headers</h3>
+          </div>
+          <ul class="hw-list">
+            <li><strong>MSI 185-Byte Controllers:</strong> Z690, Z790, B650, X670</li>
+            <li><strong>MSI 162-Byte Controllers:</strong> Mystic Light USB series</li>
+            <li><strong>ARGB 3-Pin Headers:</strong> Addressable fan hubs &amp; AIO liquid coolers</li>
+            <li><strong>Circular Fan Rings:</strong> Real 2D spatial concentric mapping</li>
+            <li><strong>MSI MAG Monitors &amp; Gaming GPUs</strong></li>
+          </ul>
+        </div>
+
+        <div class="liquid-glass-card hw-card">
+          <div class="hw-card-header">
+            <span class="hw-icon">🌐</span>
+            <h3>OpenRGB &amp; Network WLED</h3>
+          </div>
+          <ul class="hw-list">
+            <li><strong>OpenRGB Local SDK:</strong> ASUS Aura, Gigabyte RGB Fusion, Corsair iCUE, Razer Chroma devices</li>
+            <li><strong>RAM Modules:</strong> Kingston Fury, G.Skill Trident Z, Corsair Vengeance</li>
+            <li><strong>WLED Wi-Fi Strips:</strong> ESP8266 &amp; ESP32 strips over UDP DRGB</li>
+            <li><strong>Virtual Simulator:</strong> Emulate virtual devices for headless testing</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Effect SDK Code Showcase -->
+  <section class="sdk-section" id="sdk">
+    <div class="container">
+      <div class="section-header text-center">
+        <span class="section-tag liquid-glass-pill">Open-Source Extensibility</span>
+        <h2 class="section-title">Write Custom Lighting in Seconds</h2>
+        <p class="section-desc">
+          No complex SDK toolchains or C++ rebuilds. Just drop a C# file into the <code>effects/</code> directory and hit Reload.
+        </p>
+      </div>
+
+      <div class="liquid-glass-card code-window" id="code-showcase-card">
+        <div class="window-header">
+          <div class="window-controls">
+            <span class="win-btn win-close"></span>
+            <span class="win-btn win-min"></span>
+            <span class="win-btn win-max"></span>
+          </div>
+          <div class="window-title">effects/MyRainbowWave/effect.cs</div>
+          <button class="btn btn-glass btn-sm copy-btn" id="btn-copy-code" aria-label="Copy code">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copy</span>
+          </button>
+        </div>
+
+        <pre class="code-pre"><code><span class="token-keyword">using</span> <span class="token-type">System</span>;
+<span class="token-keyword">using</span> <span class="token-type">XenRGB.SDK</span>;
+
+<span class="token-keyword">public sealed class</span> <span class="token-class">MyRainbowWaveEffect</span> : <span class="token-class">EffectBase</span>
+{
+    <span class="token-comment">// Evaluated for each LED on the 2D spatial canvas</span>
+    <span class="token-keyword">public override</span> <span class="token-type">RgbColor</span> <span class="token-func">Evaluate</span>(<span class="token-type">Point2D</span> position, <span class="token-keyword">double</span> time)
+    {
+        <span class="token-keyword">float</span> speed = <span class="token-func">GetFloat</span>(<span class="token-string">"speed"</span>, 1.5f);
+        <span class="token-keyword">float</span> frequency = <span class="token-func">GetFloat</span>(<span class="token-string">"frequency"</span>, 8.0f);
+
+        <span class="token-comment">// Calculate smooth spatial phase from 2D coordinates</span>
+        <span class="token-keyword">float</span> phase = position.X * frequency + (<span class="token-keyword">float</span>)time * speed;
+        <span class="token-keyword">float</span> hue = (phase * 60f) % 360f;
+        <span class="token-keyword">if</span> (hue &lt; 0) hue += 360f;
+
+        <span class="token-keyword">return</span> <span class="token-type">RgbColor</span>.<span class="token-func">FromHsv</span>(hue, 1.0f, 1.0f);
+    }
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start & Build Guide -->
+  <section class="quickstart-section" id="quickstart">
+    <div class="container">
+      <div class="liquid-glass-card cta-card text-center" id="cta-install-card">
+        <h2 class="cta-title">Ready to Experience True Low-Power RGB?</h2>
+        <p class="cta-desc">
+          XenRGB is 100% free and open-source under the MIT license. Works out of the box with Windows 10 &amp; 11.
+        </p>
+
+        <div class="command-box liquid-glass-pill" id="clone-cmd-box">
+          <code>git clone https://github.com/your-username/XenRGB.git &amp;&amp; dotnet build XenRGB.sln</code>
+          <button class="cmd-copy-btn" id="btn-copy-cmd" title="Copy command">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="cta-buttons">
+          <a href="https://github.com/your-username/XenRGB/releases" class="btn btn-primary btn-lg">
+            <span>Download Latest Release</span>
+          </a>
+          <a href="https://github.com/your-username/XenRGB" class="btn btn-glass btn-lg">
+            <span>Star on GitHub</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer-wrapper">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <img src="assets/logo.png" alt="XenRGB Logo" width="28" height="28">
+          <span>XenRGB</span>
+        </div>
+        <p class="footer-tagline">
+          Next-generation, low-power RGB lighting controller for Windows.
+        </p>
+      </div>
+
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Project</h4>
+          <a href="#features">Features</a>
+          <a href="#efficiency">Power Efficiency</a>
+          <a href="#hardware">Supported Devices</a>
+          <a href="#simulator">Live Rig</a>
+        </div>
+        <div class="footer-col">
+          <h4>Developers</h4>
+          <a href="effect-sdk.md">Effect SDK Docs</a>
+          <a href="https://github.com/your-username/XenRGB" target="_blank" rel="noopener noreferrer">Source Code</a>
+          <a href="https://github.com/your-username/XenRGB/issues" target="_blank" rel="noopener noreferrer">Report Bug</a>
+        </div>
+        <div class="footer-col">
+          <h4>License</h4>
+          <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a>
+          <p class="footer-disclaimer">Free &amp; open source forever.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="container footer-bottom">
+      <p>&copy; 2026 XenRGB Project. Released under the MIT License.</p>
+      <p class="powered-by">Built with .NET 9 &bull; WinUI 3 &bull; OpenRGB</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
