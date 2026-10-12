@@ -209,14 +209,21 @@ public sealed class RgbEngine : IDisposable
                 fpsSw.Restart();
             }
 
-            // Frame rate limit
-            int targetDelayMs = 1000 / _targetFps;
-            int elapsedFrameMs = (int)((sw.Elapsed.TotalSeconds - currentSeconds) * 1000f);
-            int sleepTime = targetDelayMs - elapsedFrameMs;
+            // Frame rate limit — use WaitableTimerEx with tolerance so the OS
+            // does NOT raise the global timer resolution to ~1 ms.
+            // Thread.Sleep() would prevent CPU C-state transitions (C3/C6+),
+            // keeping the CPU frequency at turbo levels (2.4–3.5 GHz) even at 0% load.
+            long targetDelayMs = 1000 / _targetFps;
+            long elapsedFrameMs = (long)((sw.Elapsed.TotalSeconds - currentSeconds) * 1000.0);
+            long sleepTime = targetDelayMs - elapsedFrameMs;
 
             if (sleepTime > 0)
             {
-                Thread.Sleep(sleepTime);
+                WaitableTimer.SleepWithTolerance(sleepTime);
+            }
+            else
+            {
+                WaitableTimer.SleepWithTolerance(1);
             }
         }
     }

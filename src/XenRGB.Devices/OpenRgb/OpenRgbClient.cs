@@ -371,6 +371,10 @@ public sealed class OpenRgbClient : IOpenRgbClient
     /// </summary>
     private int _clientLogCounter;
 
+    // Per-controller reusable payload buffers to avoid per-frame heap allocations.
+    // Key: controllerIndex. Protected by _writeLock (only written inside SendUpdateLedsAsync).
+    private readonly Dictionary<uint, byte[]> _payloadBuffers = new();
+
     public async Task SendUpdateLedsAsync(
         uint controllerIndex,
         ReadOnlyMemory<uint> bgrColors,
@@ -401,7 +405,14 @@ public sealed class OpenRgbClient : IOpenRgbClient
             //   colors    (4 * N)
             int payloadSize = checked(4 + 2 + colorCount * 4);
 
-            byte[] payload = new byte[payloadSize];
+            // Reuse per-controller buffer to avoid per-frame heap allocations.
+            // New byte[] is only allocated on the first call or when LED count grows.
+            if (!_payloadBuffers.TryGetValue(controllerIndex, out byte[]? payload) ||
+                payload.Length < payloadSize)
+            {
+                payload = new byte[payloadSize];
+                _payloadBuffers[controllerIndex] = payload;
+            }
 
             BitConverter.TryWriteBytes(
                 payload.AsSpan(0, 4),
@@ -428,7 +439,7 @@ public sealed class OpenRgbClient : IOpenRgbClient
             await SendRawAsync(
                 devId,
                 CommandUpdateLeds,
-                payload,
+                payload.AsMemory(0, payloadSize),
                 ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -589,7 +600,11 @@ public sealed class OpenRgbClient : IOpenRgbClient
             }
             else
             {
-                await Task.Delay(10, ct).ConfigureAwait(false);
+                // Task.Delay(10) raises the global timer resolution.
+                // We use WaitableTimer.SleepWithTolerance instead, synchronously 
+                // blocking this task for 50ms. Since this is called from a background
+                // reconnect loop, blocking a ThreadPool thread here is acceptable.
+                XenRGB.Core.Engine.WaitableTimer.SleepWithTolerance(50);
             }
         }
     }
@@ -626,6 +641,38 @@ public sealed class OpenRgbClient : IOpenRgbClient
         BitConverter.TryWriteBytes(
             hdr.AsSpan(12, 4),
             (uint)data.Length);
+
+        await stream.WriteAsync(hdr, ct).ConfigureAwait(false);
+
+        if (data.Length > 0)
+        {
+            await stream.WriteAsync(data, ct).ConfigureAwait(false);
+        }
+
+        await stream.FlushAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Overload that accepts a ReadOnlyMemory slice — avoids copying when sending
+    /// a sub-range of a reusable payload buffer (e.g. in SendUpdateLedsAsync).
+    /// </summary>
+    private async Task SendRawAsync(
+        uint devId,
+        uint cmdId,
+        ReadOnlyMemory<byte> data,
+        CancellationToken ct)
+    {
+        NetworkStream? stream = _stream;
+
+        if (stream == null)
+            throw new InvalidOperationException("Not connected");
+
+        byte[] hdr = new byte[16];
+
+        BitConverter.TryWriteBytes(hdr.AsSpan(0, 4), Magic);
+        BitConverter.TryWriteBytes(hdr.AsSpan(4, 4), devId);
+        BitConverter.TryWriteBytes(hdr.AsSpan(8, 4), cmdId);
+        BitConverter.TryWriteBytes(hdr.AsSpan(12, 4), (uint)data.Length);
 
         await stream.WriteAsync(hdr, ct).ConfigureAwait(false);
 

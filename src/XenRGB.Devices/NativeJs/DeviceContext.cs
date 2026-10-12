@@ -37,27 +37,34 @@ public class DeviceContext
     private byte[]? BuildBuffer(object packetObj, int length)
     {
         if (packetObj == null || length <= 0) return null;
-        var packet = packetObj as object[];
-        if (packet == null && packetObj is JsArray jsArr)
-        {
-            var list = new object[(int)jsArr.Length];
-            for (int i = 0; i < list.Length; i++)
-            {
-                var val = jsArr.Get(i.ToString());
-                list[i] = val.IsNumber() ? val.AsNumber() : 0.0;
-            }
-            packet = list;
-        }
-        if (packet == null) return null;
-
         byte[] buffer = new byte[length];
-        for (int i = 0; i < length && i < packet.Length; i++)
+
+        if (packetObj is JsArray jsArr)
         {
-            if (packet[i] is double d) buffer[i] = (byte)d;
-            else if (packet[i] is int val) buffer[i] = (byte)val;
-            else if (packet[i] is IConvertible c) buffer[i] = c.ToByte(null);
-            else buffer[i] = 0;
+            uint count = Math.Min((uint)length, (uint)jsArr.Length);
+            for (uint i = 0; i < count; i++)
+            {
+                var val = jsArr[i];
+                if (val.IsNumber())
+                {
+                    buffer[i] = (byte)val.AsNumber();
+                }
+            }
+            return buffer;
         }
+
+        if (packetObj is object[] packet)
+        {
+            for (int i = 0; i < length && i < packet.Length; i++)
+            {
+                if (packet[i] is double d) buffer[i] = (byte)d;
+                else if (packet[i] is int val) buffer[i] = (byte)val;
+                else if (packet[i] is IConvertible c) buffer[i] = c.ToByte(null);
+                else buffer[i] = 0;
+            }
+            return buffer;
+        }
+
         return buffer;
     }
 
@@ -106,7 +113,8 @@ public class DeviceContext
 
     public void pause(int ms)
     {
-        Thread.Sleep(ms);
+        // Use WaitableTimer instead of Thread.Sleep to avoid raising global timer resolution
+        XenRGB.Core.Engine.WaitableTimer.SleepWithTolerance(ms);
     }
 
     // Colors & LED Mapping
@@ -134,6 +142,8 @@ public class DeviceContext
         _currentColors = rgbBuffer;
     }
 
+    private readonly int[] _reusableColor = new int[3];
+
     public int[] subdeviceColor(string subdeviceName, int row, int col)
     {
         if (!string.IsNullOrEmpty(subdeviceName) && _subdeviceToLedIndex.TryGetValue(subdeviceName, out int ledIdx))
@@ -141,13 +151,23 @@ public class DeviceContext
             int offset = ledIdx * 3;
             if (offset + 2 < _currentColors.Length)
             {
-                return new int[] { _currentColors[offset], _currentColors[offset + 1], _currentColors[offset + 2] };
+                _reusableColor[0] = _currentColors[offset];
+                _reusableColor[1] = _currentColors[offset + 1];
+                _reusableColor[2] = _currentColors[offset + 2];
+                return _reusableColor;
             }
         }
 
         if (_currentColors.Length >= 3)
-            return new int[] { _currentColors[0], _currentColors[1], _currentColors[2] };
-        return new int[] { 0, 0, 0 };
+        {
+            _reusableColor[0] = _currentColors[0];
+            _reusableColor[1] = _currentColors[1];
+            _reusableColor[2] = _currentColors[2];
+            return _reusableColor;
+        }
+
+        _reusableColor[0] = 0; _reusableColor[1] = 0; _reusableColor[2] = 0;
+        return _reusableColor;
     }
 
     public int[] color(string ledName)
@@ -157,13 +177,23 @@ public class DeviceContext
             int offset = ledIdx * 3;
             if (offset + 2 < _currentColors.Length)
             {
-                return new int[] { _currentColors[offset], _currentColors[offset + 1], _currentColors[offset + 2] };
+                _reusableColor[0] = _currentColors[offset];
+                _reusableColor[1] = _currentColors[offset + 1];
+                _reusableColor[2] = _currentColors[offset + 2];
+                return _reusableColor;
             }
         }
 
         if (_currentColors.Length >= 3)
-            return new int[] { _currentColors[0], _currentColors[1], _currentColors[2] };
-        return new int[] { 0, 0, 0 };
+        {
+            _reusableColor[0] = _currentColors[0];
+            _reusableColor[1] = _currentColors[1];
+            _reusableColor[2] = _currentColors[2];
+            return _reusableColor;
+        }
+
+        _reusableColor[0] = 0; _reusableColor[1] = 0; _reusableColor[2] = 0;
+        return _reusableColor;
     }
 
     public int[] color(int x, int y)
@@ -173,13 +203,23 @@ public class DeviceContext
             int offset = ledIdx * 3;
             if (offset + 2 < _currentColors.Length)
             {
-                return new int[] { _currentColors[offset], _currentColors[offset + 1], _currentColors[offset + 2] };
+                _reusableColor[0] = _currentColors[offset];
+                _reusableColor[1] = _currentColors[offset + 1];
+                _reusableColor[2] = _currentColors[offset + 2];
+                return _reusableColor;
             }
         }
 
         if (_currentColors.Length >= 3)
-            return new int[] { _currentColors[0], _currentColors[1], _currentColors[2] };
-        return new int[] { 0, 0, 0 };
+        {
+            _reusableColor[0] = _currentColors[0];
+            _reusableColor[1] = _currentColors[1];
+            _reusableColor[2] = _currentColors[2];
+            return _reusableColor;
+        }
+
+        _reusableColor[0] = 0; _reusableColor[1] = 0; _reusableColor[2] = 0;
+        return _reusableColor;
     }
 
     public void setSubdeviceName(string subdevice, string name) { }
