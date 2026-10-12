@@ -414,7 +414,7 @@ public sealed class MyRainbowWaveEffect : EffectBase
   const copyCmdBtn = document.getElementById('btn-copy-cmd');
   if (copyCmdBtn) {
     copyCmdBtn.addEventListener('click', () => {
-      const cmd = 'git clone https://github.com/your-username/XenRGB.git && dotnet build XenRGB.sln';
+      const cmd = 'git clone https://github.com/Xenofff/XenRGB.git && dotnet build XenRGB.sln';
       navigator.clipboard.writeText(cmd).then(() => {
         copyCmdBtn.style.color = '#00f59b';
         setTimeout(() => { copyCmdBtn.style.color = ''; }, 2000);
